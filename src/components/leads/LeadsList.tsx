@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ const statusStyles: Record<string, string> = {
 export function LeadsList() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadLeads();
@@ -130,7 +132,8 @@ export function LeadsList() {
           {leads.map((lead) => (
             <div
               key={lead.id}
-              className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors"
+              className="flex items-start gap-4 p-4 rounded-lg bg-secondary/50 hover:bg-secondary/80 transition-colors cursor-pointer"
+              onClick={() => navigate(`/leads/${lead.id}`)}
             >
               <Avatar className="h-10 w-10 flex-shrink-0">
                 <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">

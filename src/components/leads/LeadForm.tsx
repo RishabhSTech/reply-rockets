@@ -50,6 +50,45 @@ export function LeadForm({ onLeadAdded }: LeadFormProps) {
       .single();
 
     if (error) throw error;
+    
+    // Generate persona in background if LinkedIn or website provided (don't block)
+    if (data && (formData.founder_linkedin || formData.website_url)) {
+      const provider = localStorage.getItem("ai_provider") || "openai";
+      const providerApiKey =
+        provider === "openai"
+          ? localStorage.getItem("openai_api_key") || undefined
+          : provider === "claude"
+            ? localStorage.getItem("claude_api_key") || undefined
+            : undefined;
+
+      // Only generate if we have an API key for non-lovable providers
+      if (provider === "lovable" || providerApiKey) {
+        supabase.functions
+          .invoke("generate-persona", {
+            body: {
+              leadName: formData.name.trim(),
+              leadPosition: formData.position.trim(),
+              founderLinkedIn: formData.founder_linkedin.trim() || undefined,
+              websiteUrl: formData.website_url.trim() || undefined,
+              provider,
+              providerApiKey,
+            },
+          })
+          .then(async (res) => {
+            if (!res.error && res.data?.persona) {
+              await supabase
+                .from("leads")
+                .update({
+                  persona_insights: res.data.persona,
+                  persona_generated_at: new Date().toISOString(),
+                } as any)
+                .eq("id", data.id);
+            }
+          })
+          .catch((err) => console.error("Background persona generation failed:", err));
+      }
+    }
+    
     return data;
   };
 
