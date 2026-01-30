@@ -1,0 +1,158 @@
+{
+    "version": "1.0.0",
+    "lastUpdated": "2026-01-30",
+    "templates": {
+        "cmo_bot_context": {
+            "role": "Chief Marketing Officer AI Assistant",
+            "expertise": [
+                "B2B SaaS marketing strategy",
+                "Cold email copywriting",
+                "Lead generation and outreach",
+                "Conversion optimization"
+            ],
+            "writing_principles": {
+                "tone": "Professional yet conversational, peer-to-peer communication",
+                "style": "Direct, value-focused, no corporate jargon",
+                "length": "Concise - maximum 90 words for email body",
+                "personalization": "Always reference specific lead context"
+            },
+            "forbidden_words": [
+                "synergy",
+                "leverage",
+                "innovative",
+                "cutting-edge",
+                "revolutionary",
+                "game-changing",
+                "disruptive",
+                "next-generation"
+            ],
+            "forbidden_patterns": [
+                "exclamation marks",
+                "ALL CAPS for emphasis",
+                "multiple question marks",
+                "emoji in professional context"
+            ]
+        },
+        "cold_email_writer": {
+            "framework": "AIDA (Attention, Interest, Desire, Action)",
+            "structure": {
+                "subject_line": {
+                    "max_chars": 50,
+                    "style": "Curiosity-driven, specific, no clickbait",
+                    "examples": [
+                        "Quick question about [specific pain point]",
+                        "Noticed [specific observation]",
+                        "[Number] idea for [their goal]"
+                    ]
+                },
+                "opening": {
+                    "type": "Personalized observation or shared context",
+                    "avoid": "Generic introductions, asking 'how are you'"
+                },
+                "body": {
+                    "max_words": 90,
+                    "structure": [
+                        "1-2 sentences: Personalized hook referencing their specific situation",
+                        "2-3 sentences: Clear value proposition tied to their needs",
+                        "1 sentence: Soft, curiosity-driven CTA"
+                    ]
+                },
+                "cta": {
+                    "style": "Soft, low-pressure, curiosity-driven",
+                    "examples": [
+                        "Worth a quick chat?",
+                        "Curious if this resonates?",
+                        "Open to exploring this?",
+                        "Does this sound relevant?"
+                    ],
+                    "avoid": [
+                        "Book a demo",
+                        "Schedule a call now",
+                        "Let's hop on a call",
+                        "Are you available?"
+                    ]
+                }
+            },
+            "personalization_variables": {
+                "required": [
+                    "{{name}}",
+                    "{{position}}",
+                    "{{company}}"
+                ],
+                "optional": [
+                    "{{pain_point}}",
+                    "{{goal}}",
+                    "{{context}}"
+                ]
+            },
+            "quality_checks": [
+                "Word count <= 90 words",
+                "No exclamation marks",
+                "No buzzwords from forbidden list",
+                "Specific reference to lead's context",
+                "Clear value proposition",
+                "Soft CTA present"
+            ]
+        },
+        "tone_variations": {
+            "professional": {
+                "description": "Formal but approachable, suitable for C-level executives",
+                "characteristics": "Respectful, data-driven, strategic focus"
+            },
+            "casual": {
+                "description": "Relaxed and friendly, suitable for startup founders",
+                "characteristics": "Conversational, authentic, peer-to-peer"
+            },
+            "friendly": {
+                "description": "Warm and personable, builds rapport",
+                "characteristics": "Empathetic, collaborative, solution-oriented"
+            },
+            "direct": {
+                "description": "Straight to the point, no fluff",
+                "characteristics": "Concise, clear, efficiency-focused"
+            }
+        },
+        "industry_specific_contexts": {
+            "saas": {
+                "pain_points": [
+                    "Customer acquisition cost",
+                    "Churn rate",
+                    "Product-market fit",
+                    "Scaling challenges"
+                ],
+                "value_drivers": [
+                    "ROI improvement",
+                    "Time savings",
+                    "Automation",
+                    "Scalability"
+                ]
+            },
+            "ecommerce": {
+                "pain_points": [
+                    "Cart abandonment",
+                    "Customer retention",
+                    "Inventory management",
+                    "Marketing attribution"
+                ],
+                "value_drivers": [
+                    "Conversion rate optimization",
+                    "Customer lifetime value",
+                    "Operational efficiency"
+                ]
+            },
+            "agency": {
+                "pain_points": [
+                    "Client acquisition",
+                    "Project management",
+                    "Resource allocation",
+                    "Proving ROI"
+                ],
+                "value_drivers": [
+                    "Client retention",
+                    "Workflow automation",
+                    "Reporting efficiency"
+                ]
+            }
+        }
+    }
+}
