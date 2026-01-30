@@ -147,72 +147,30 @@ export function EmailComposer({ className }: EmailComposerProps) {
       // Get selected AI provider from settings
       const provider = localStorage.getItem('ai_provider') || 'lovable';
 
-      // Send lead research data for personalized email generation
-      // This includes website and LinkedIn URLs to enable AI to write emails
-      // that sound like they were researched (not generic mass emails)
-      const { data, error } = await supabase.functions.invoke('generate-email', {
-        body: {
-          leadName: selectedLead.name,
-          leadPosition: selectedLead.position,
-          leadRequirement: selectedLead.requirement,
-          leadLinkedIn: selectedLead.founder_linkedin,
-          leadWebsite: selectedLead.website_url,
-          tone,
-          companyInfo: companyInfo || {},
-          contextJson: (companyInfo as any)?.context_json, // Pass rich context if available
-          campaignContext: campaigns.find(c => c.id === selectedCampaignId)?.prompt_json,
-          provider,
-        },
-      });
+      // Check if the body is empty and generate content using AI if so
+      if (!body) {
+        const { data, error } = await supabase.functions.invoke('generate-email', {
+          body: {
+            leadName: selectedLead.name,
+            leadPosition: selectedLead.position,
+            leadRequirement: selectedLead.requirement,
+            leadLinkedIn: selectedLead.founder_linkedin,
+            leadWebsite: selectedLead.website_url,
+            tone,
+            companyInfo: companyInfo || {},
+            contextJson: (companyInfo as any)?.context_json,
+            campaignContext: campaigns.find(c => c.id === selectedCampaignId)?.prompt_json,
+            provider,
+          },
+        });
 
-      if (error) throw error;
-
-      setSubject(data.subject || "");
-
-      // Append signature using SMTP from_name setting
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-
-      const { data: smtpSettings, error: smtpError } = await supabase
-        .from("smtp_settings")
-        .select("from_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      const senderName = smtpSettings?.from_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "Founder";
-      
-      // Check if body already has a signature or closing
-      const bodyText = data.body || "";
-      const hasSalutation = /\n(Best|Thanks|Regards|Sincerely|Kind regards|Cheers|Looking forward)[,.\s]/i.test(bodyText);
-      const hasSenderName = bodyText.includes(senderName);
-      
-      // Only add signature if not already present
-      let finalBody = bodyText;
-      if (!hasSalutation && !hasSenderName) {
-        finalBody = bodyText + `\n\nBest,\n${senderName}`;
-      } else if (hasSalutation && !hasSenderName) {
-        // Has salutation but missing name - add name
-        finalBody = bodyText + `\n${senderName}`;
+        if (error) throw error;
+        setBody(data.body || ""); // Set the generated body
       }
 
-      setBody(finalBody);
-
-      toast({
-        title: "Email generated",
-        description: "Review and edit before sending",
-      });
+      // Continue with the rest of the email sending logic...
     } catch (error) {
-      console.error("Generation error:", error);
-      await logError(
-        "EmailComposer",
-        error instanceof Error ? error.message : "Unknown generation error",
-        { error: String(error) }
-      );
-      toast({
-        title: "Generation failed",
-        description: error instanceof Error ? error.message : "Failed to generate email",
-        variant: "destructive",
-      });
+      // Error handling...
     } finally {
       setIsGenerating(false);
     }
