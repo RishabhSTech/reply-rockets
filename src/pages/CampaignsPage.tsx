@@ -227,6 +227,8 @@ const CampaignsPage = () => {
             ? localStorage.getItem("claude_api_key") || undefined
             : undefined;
 
+      console.log("Running campaign with provider:", provider);
+
       const { data, error } = await supabase.functions.invoke("send-campaign-emails", {
         body: {
           campaignId,
@@ -235,19 +237,34 @@ const CampaignsPage = () => {
         },
       });
 
-      if (error) throw error;
+      console.log("Campaign response:", { data, error });
 
-      toast({
-        title: "Success",
-        description: `Sent ${data.emailsSent} emails out of ${data.total} leads`,
-      });
+      // Check for invoke-level errors (function not found, auth errors, etc)
+      if (error) {
+        console.error("Campaign invoke error:", error);
+        throw new Error(error.message || "Failed to invoke send-campaign-emails function");
+      }
 
-      loadCampaigns();
-    } catch (error) {
+      // Check for API-level errors in the response
+      if (data?.error) {
+        console.error("Campaign API error:", data.error);
+        throw new Error(data.error);
+      }
+
+      if (data?.success && data?.emailsSent !== undefined) {
+        toast({
+          title: "Success",
+          description: `Sent ${data.emailsSent} emails out of ${data.total} leads`,
+        });
+        loadCampaigns();
+      } else {
+        throw new Error("Unexpected response format from send-campaign-emails");
+      }
+    } catch (error: any) {
       console.error("Error running campaign:", error);
       toast({
         title: "Error",
-        description: "Failed to send campaign emails",
+        description: error.message || "Failed to send campaign emails",
         variant: "destructive",
       });
     } finally {

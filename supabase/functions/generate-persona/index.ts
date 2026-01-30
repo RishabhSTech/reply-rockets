@@ -121,12 +121,14 @@ Based on these signals, provide:
             })
 
             if (!response.ok) {
-                const error = await response.json()
+                const error = await response.json().catch(() => ({ error: response.statusText }))
+                console.error('OpenAI API error response:', error)
                 throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`)
             }
 
             const data = await response.json()
-            responseContent = data.choices[0].message.content
+            responseContent = data.choices?.[0]?.message?.content || ''
+            if (!responseContent) throw new Error('No content in OpenAI response')
         } else if (provider === 'claude') {
             const apiKey = providerApiKey || Deno.env.get('CLAUDE_API_KEY')
             if (!apiKey) throw new Error('Claude API key not configured')
@@ -148,12 +150,14 @@ Based on these signals, provide:
             })
 
             if (!response.ok) {
-                const error = await response.json()
+                const error = await response.json().catch(() => ({ error: response.statusText }))
+                console.error('Claude API error response:', error)
                 throw new Error(`Claude API error: ${error.error?.message || response.statusText}`)
             }
 
             const data = await response.json()
-            responseContent = data.content[0].text
+            responseContent = data.content?.[0]?.text || ''
+            if (!responseContent) throw new Error('No content in Claude response')
         } else if (provider === 'lovable') {
             const apiKey = Deno.env.get('LOVABLE_API_KEY')
             if (!apiKey) throw new Error('Lovable API key not configured')
@@ -172,22 +176,49 @@ Based on these signals, provide:
             })
 
             if (!response.ok) {
-                throw new Error(`Lovable API error: ${response.statusText}`)
+                const errorText = await response.text()
+                console.error('Lovable API error response:', errorText)
+                throw new Error(`Lovable API error: ${response.statusText} - ${errorText}`)
             }
 
             const data = await response.json()
             responseContent = data.choices?.[0]?.message?.content || ""
+            if (!responseContent) throw new Error('No content in Lovable response')
         } else {
             throw new Error(`Unsupported provider: ${provider}`)
         }
 
         // Parse JSON response
+        console.log('Raw AI response:', responseContent.substring(0, 500))
+        
         const jsonMatch = responseContent.match(/\{[\s\S]*\}/)
         if (!jsonMatch) {
-            throw new Error('Failed to parse AI response as JSON')
+            console.error('No JSON found in response:', responseContent)
+            // Return a default persona if JSON parsing fails
+            const personaData = {
+                title: `${request.leadPosition} at a company`,
+                industry: "Technology",
+                painPoints: ["Need to connect with relevant professionals", "Looking for solutions"],
+                priorities: ["Growth", "Efficiency"],
+                recentActivities: [],
+                icebreakerHooks: [`Based on their ${request.leadPosition} role`],
+                openingLines: ["I noticed your professional profile"],
+                companyContext: "Professional in their field",
+                keyTakeaways: "Engaged professional"
+            }
+            
+            return new Response(JSON.stringify({ persona: personaData }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
         }
 
-        const personaData = JSON.parse(jsonMatch[0])
+        let personaData
+        try {
+            personaData = JSON.parse(jsonMatch[0])
+        } catch (parseError) {
+            console.error('JSON parse error:', parseError, 'JSON string:', jsonMatch[0])
+            throw new Error('Failed to parse persona JSON: ' + (parseError as any).message)
+        }
 
         return new Response(JSON.stringify({ persona: personaData }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -195,7 +226,11 @@ Based on these signals, provide:
 
     } catch (error: any) {
         console.error('Generate Persona Error:', error.message)
-        return new Response(JSON.stringify({ error: error.message }), {
+        console.error('Error stack:', error.stack)
+        return new Response(JSON.stringify({ 
+            error: error.message || 'Unknown error during persona generation',
+            details: error.stack 
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         })

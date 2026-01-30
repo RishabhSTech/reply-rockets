@@ -86,6 +86,8 @@ Deno.serve(async (req) => {
         let emailsSent = 0
         const emailPromises = leads.map(async (lead) => {
             try {
+                console.log(`Generating email for lead: ${lead.name} (${lead.email})`);
+
                 // Generate personalized email
                 const generateRes = await supabaseClient.functions.invoke('generate-email', {
                     body: {
@@ -103,9 +105,19 @@ Deno.serve(async (req) => {
                     },
                 })
 
-                if (generateRes.error) throw generateRes.error
+                if (generateRes.error) {
+                    console.error(`Generate email error for ${lead.name}:`, generateRes.error);
+                    throw generateRes.error;
+                }
+
+                if (generateRes.data?.error) {
+                    console.error(`Generate email API error for ${lead.name}:`, generateRes.data.error);
+                    throw new Error(generateRes.data.error);
+                }
 
                 const { subject, body } = generateRes.data
+
+                console.log(`Sending email to ${lead.email}`);
 
                 // Send email via send-email function
                 const sendRes = await supabaseClient.functions.invoke('send-email', {
@@ -118,26 +130,42 @@ Deno.serve(async (req) => {
                     },
                 })
 
-                if (sendRes.error) throw sendRes.error
+                if (sendRes.error) {
+                    console.error(`Send email error for ${lead.email}:`, sendRes.error);
+                    throw sendRes.error;
+                }
 
+                if (sendRes.data?.error) {
+                    console.error(`Send email API error for ${lead.email}:`, sendRes.data.error);
+                    throw new Error(sendRes.data.error);
+                }
+
+                console.log(`Successfully sent email to ${lead.email}`);
                 return { success: true, leadId: lead.id }
-            } catch (error) {
-                console.error(`Failed to send email to ${lead.name}:`, error)
-                return { success: false, leadId: lead.id, error }
+            } catch (error: any) {
+                console.error(`Failed to send email to ${lead.name} (${lead.email}):`, error);
+                return { success: false, leadId: lead.id, error: error.message }
             }
         })
 
         const results = await Promise.all(emailPromises)
         emailsSent = results.filter(r => r.success).length
 
+        console.log(`Campaign complete: Sent ${emailsSent} out of ${leads.length} emails`);
+
         // Update campaign stats
-        await supabaseClient
+        const updateRes = await supabaseClient
             .from('campaigns')
             .update({
-                emails_sent: campaign.emails_sent + emailsSent,
+                emails_sent: (campaign.emails_sent || 0) + emailsSent,
                 last_run_at: new Date().toISOString(),
             })
             .eq('id', campaignId)
+
+        if (updateRes.error) {
+            console.error('Error updating campaign stats:', updateRes.error);
+            // Don't throw, just log - emails were sent successfully even if stats update failed
+        }
 
         return new Response(JSON.stringify({
             success: true,
@@ -150,7 +178,11 @@ Deno.serve(async (req) => {
 
     } catch (error: any) {
         console.error('Send Campaign Emails Error:', error.message)
-        return new Response(JSON.stringify({ error: error.message }), {
+        console.error('Error stack:', error.stack)
+        return new Response(JSON.stringify({ 
+            error: error.message || 'Unknown error during campaign send',
+            details: error.stack
+        }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
             status: 400,
         })

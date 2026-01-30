@@ -75,7 +75,23 @@ export function LeadForm({ onLeadAdded }: LeadFormProps) {
             },
           })
           .then(async (res) => {
-            if (!res.error && res.data?.persona) {
+            console.log("Persona response:", res);
+            
+            // Check for Supabase function-level errors
+            if (res.error) {
+              console.error("Persona generation invoke error:", res.error);
+              toast.error(`Persona generation failed: ${res.error.message}`);
+              return;
+            }
+
+            // Check for API-level errors in the response data
+            if (res.data?.error) {
+              console.error("Persona generation API error:", res.data.error);
+              toast.error(`Persona generation failed: ${res.data.error}`);
+              return;
+            }
+
+            if (res.data?.persona) {
               await supabase
                 .from("leads")
                 .update({
@@ -83,9 +99,15 @@ export function LeadForm({ onLeadAdded }: LeadFormProps) {
                   persona_generated_at: new Date().toISOString(),
                 } as any)
                 .eq("id", data.id);
+              toast.success("Persona generated successfully!");
+            } else {
+              console.warn("No persona data in response:", res.data);
             }
           })
-          .catch((err) => console.error("Background persona generation failed:", err));
+          .catch((err) => {
+            console.error("Background persona generation failed:", err);
+            toast.error(`Persona generation failed: ${err.message}`);
+          });
       }
     }
     

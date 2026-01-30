@@ -96,7 +96,14 @@ export function LeadDetailPage() {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Persona generation error:", error);
+        throw new Error(error.message || "Failed to generate persona");
+      }
+
+      if (!data?.persona) {
+        throw new Error("No persona data returned from AI");
+      }
 
       // Update lead with persona insights
       const { error: updateError } = await supabase
