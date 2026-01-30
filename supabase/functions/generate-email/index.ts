@@ -22,6 +22,7 @@ interface GenerateEmailRequest {
   };
   contextJson?: any;
   provider?: 'claude' | 'openai' | 'lovable';
+  providerApiKey?: string;
   campaignContext?: any;
 }
 
@@ -186,7 +187,8 @@ REMEMBER: Sound like a peer who did homework, not a salesperson running a script
 async function callAIProvider(
   provider: string,
   systemPrompt: string,
-  userPrompt: string
+  userPrompt: string,
+  providerApiKey?: string
 ): Promise<string> {
   const messages = [
     { role: "system", content: systemPrompt },
@@ -195,17 +197,18 @@ async function callAIProvider(
 
   switch (provider) {
     case 'claude':
-      return callClaude(messages, systemPrompt);
+      return callClaude(messages, systemPrompt, providerApiKey);
     case 'openai':
-      return callOpenAI(messages);
+      return callOpenAI(messages, providerApiKey);
     case 'lovable':
-    default:
       return callLovable(messages);
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
   }
 }
 
-async function callClaude(messages: any[], systemPrompt: string): Promise<string> {
-  const apiKey = Deno.env.get("CLAUDE_API_KEY");
+async function callClaude(messages: any[], systemPrompt: string, providerApiKey?: string): Promise<string> {
+  const apiKey = providerApiKey || Deno.env.get("CLAUDE_API_KEY");
   if (!apiKey) throw new Error("CLAUDE_API_KEY not configured");
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -233,8 +236,8 @@ async function callClaude(messages: any[], systemPrompt: string): Promise<string
   return data.content[0].text;
 }
 
-async function callOpenAI(messages: any[]): Promise<string> {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
+async function callOpenAI(messages: any[], providerApiKey?: string): Promise<string> {
+  const apiKey = providerApiKey || Deno.env.get("OPENAI_API_KEY");
   if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
 
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -332,6 +335,7 @@ serve(async (req) => {
   try {
     const request: GenerateEmailRequest = await req.json();
     const provider = request.provider || 'openai'; // Default to OpenAI
+    const providerApiKey = request.providerApiKey;
 
     // Log request details
     console.log("📧 Email Generation Request:");
@@ -355,7 +359,7 @@ serve(async (req) => {
     console.log("=====================================\n");
 
     // Call AI provider
-    const content = await callAIProvider(provider, systemPrompt, userPrompt);
+    const content = await callAIProvider(provider, systemPrompt, userPrompt, providerApiKey);
 
     // Parse response
     const emailData = parseEmailResponse(content);

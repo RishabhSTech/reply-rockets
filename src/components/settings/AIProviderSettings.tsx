@@ -185,7 +185,7 @@ export function AIProviderSettings() {
                             className="bg-secondary border-0 font-mono text-sm"
                         />
                         <p className="text-xs text-muted-foreground">
-                            Your API key is stored locally and never sent to our servers
+                            Your API key is stored locally and used only to generate emails with your selected provider
                         </p>
                     </div>
                 )}

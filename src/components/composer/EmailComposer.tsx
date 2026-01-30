@@ -146,6 +146,21 @@ export function EmailComposer({ className }: EmailComposerProps) {
     try {
       // Get selected AI provider from settings
       const provider = localStorage.getItem('ai_provider') || 'lovable';
+      const providerApiKey =
+        provider === 'openai'
+          ? localStorage.getItem('openai_api_key') || undefined
+          : provider === 'claude'
+            ? localStorage.getItem('claude_api_key') || undefined
+            : undefined;
+
+      if ((provider === 'openai' || provider === 'claude') && !providerApiKey) {
+        toast({
+          title: "Missing API key",
+          description: "Please add your API key in Settings before generating.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       // Check if the body is empty and generate content using AI if so
       if (!body) {
@@ -161,6 +176,7 @@ export function EmailComposer({ className }: EmailComposerProps) {
             contextJson: (companyInfo as any)?.context_json,
             campaignContext: campaigns.find(c => c.id === selectedCampaignId)?.prompt_json,
             provider,
+            providerApiKey,
           },
         });
 
