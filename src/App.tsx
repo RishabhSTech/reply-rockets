@@ -8,10 +8,12 @@ import Auth from "./pages/Auth";
 import LeadsPage from "./pages/LeadsPage";
 import SettingsPage from "./pages/SettingsPage";
 import CampaignsPage from "./pages/CampaignsPage";
+import CampaignDetailsPage from "./pages/CampaignDetailsPage";
 import ComposePage from "./pages/ComposePage";
 import InboxPage from "./pages/InboxPage";
 import MeetingsPage from "./pages/MeetingsPage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import ErrorLogsPage from "./pages/ErrorLogsPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -28,10 +30,12 @@ const App = () => (
           <Route path="/leads" element={<LeadsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
+          <Route path="/campaigns/:id" element={<CampaignDetailsPage />} />
           <Route path="/compose" element={<ComposePage />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/meetings" element={<MeetingsPage />} />
           <Route path="/analytics" element={<AnalyticsPage />} />
+          <Route path="/error-logs" element={<ErrorLogsPage />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

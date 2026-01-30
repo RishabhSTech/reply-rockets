@@ -13,6 +13,29 @@ interface SendEmailRequest {
   toEmail: string;
   subject?: string;
   body?: string;
+  campaignId?: string;
+}
+
+interface Lead {
+  name: string;
+  position: string;
+  requirement?: string;
+}
+
+// Cache SMTP settings for 5 minutes to reduce database queries
+const settingsCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
+function getCachedSettings(userId: string) {
+  const cached = settingsCache.get(userId);
+  if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
+    return cached.data;
+  }
+  return null;
+}
+
+function setCachedSettings(userId: string, data: any) {
+  settingsCache.set(userId, { data, timestamp: Date.now() });
 }
 
 serve(async (req: Request) => {
@@ -45,30 +68,44 @@ serve(async (req: Request) => {
     }
 
     const userId = claimsData.claims.sub;
-    const { leadId, toEmail, subject, body }: SendEmailRequest = await req.json();
+    const { leadId, toEmail, subject, body, campaignId }: SendEmailRequest = await req.json();
 
-    // Get SMTP settings
-    const { data: smtpSettings, error: smtpError } = await supabase
-      .from("smtp_settings")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
+    // Get SMTP settings (with cache)
+    let smtpSettings = getCachedSettings(`smtp_${userId}`);
+    if (!smtpSettings) {
+      const { data, error: smtpError } = await supabase
+        .from("smtp_settings")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
 
-    if (smtpError || !smtpSettings) {
-      return new Response(
-        JSON.stringify({ error: "SMTP settings not configured. Please set up your SMTP in Settings." }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      if (smtpError || !data) {
+        return new Response(
+          JSON.stringify({ error: "SMTP settings not configured. Please set up your SMTP in Settings." }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      smtpSettings = data;
+      setCachedSettings(`smtp_${userId}`, smtpSettings);
     }
 
-    // Get warmup settings
-    const { data: warmupSettings } = await supabase
-      .from("warmup_settings")
-      .select("*")
-      .eq("user_id", userId)
-      .single();
+    // Get warmup settings (with cache)
+    let warmupSettings = getCachedSettings(`warmup_${userId}`);
+    if (!warmupSettings) {
+      const { data } = await supabase
+        .from("warmup_settings")
+        .select("*")
+        .eq("user_id", userId)
+        .single();
 
-    // Check daily limit if warmup is enabled
+      if (data) {
+        setCachedSettings(`warmup_${userId}`, data);
+        warmupSettings = data;
+      }
+    }
+
+    // Check daily limit and send window (if warmup enabled)
     if (warmupSettings?.enabled) {
       const today = new Date().toISOString().split("T")[0];
       const { count } = await supabase
@@ -80,7 +117,7 @@ serve(async (req: Request) => {
 
       if ((count || 0) >= warmupSettings.current_daily_limit) {
         return new Response(
-          JSON.stringify({ error: `Daily limit of ${warmupSettings.current_daily_limit} emails reached. Limit will increase tomorrow.` }),
+          JSON.stringify({ error: `Daily limit of ${warmupSettings.current_daily_limit} emails reached.` }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -105,7 +142,67 @@ serve(async (req: Request) => {
 
     // Generate email content if not provided
     const emailSubject = subject || `Quick question for ${lead?.name || "you"}`;
-    const emailBody = body || generateEmailBody(lead, smtpSettings.from_name);
+    let emailBody = body || generateEmailBody(lead, smtpSettings.from_name);
+
+    // ✅ Ensure proper signature handling - NO DUPLICATES
+    // Check for any salutation (Best, Thanks, Regards, Looking forward, etc)
+    const trimmedBody = emailBody.trim();
+    const hasSalutation = /\n(Best|Thanks|Regards|Sincerely|Kind regards|Cheers|Looking forward)[,.\s]/i.test(trimmedBody);
+    const hasSenderName = trimmedBody.includes(smtpSettings.from_name);
+    
+    // Only add signature if neither salutation nor sender name present
+    if (body && !hasSalutation && !hasSenderName) {
+      emailBody = trimmedBody + `\n\nBest,\n${smtpSettings.from_name}`;
+    }
+    
+    console.log(`✅ Email body prepared for ${lead?.name || "lead"}:`);
+    console.log(`   - Has salutation: ${hasSalutation}`);
+    console.log(`   - Has sender name: ${hasSenderName}`);
+    console.log(`   - Body length: ${emailBody.length} chars`);
+
+    // 1. Insert log first with 'pending' status to get the ID
+    const { data: logEntry, error: logError } = await supabase.from("email_logs").insert({
+      user_id: userId,
+      lead_id: leadId,
+      campaign_id: campaignId || null, // Capture campaignId
+      to_email: toEmail,
+      subject: emailSubject,
+      body: emailBody, // We store original body without pixel
+      status: "pending",
+      sent_at: new Date().toISOString(),
+    }).select().single();
+
+    if (logError || !logEntry) {
+      console.error("Failed to create log entry:", logError);
+      throw new Error("Failed to initialize email tracking");
+    }
+
+    // 2. Append tracking pixel
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const trackingUrlObj = new URL(`${supabaseUrl}/functions/v1/track-email`);
+    trackingUrlObj.searchParams.set("id", logEntry.id);
+    const trackingUrl = trackingUrlObj.toString();
+
+    // Ensure tracking pixel is properly formed and will be loaded
+    // Use display:block inside a container with overflow:hidden - more reliable than display:none
+    const trackingPixel = `<img src="${trackingUrl}" width="1" height="1" alt="" style="display:block;border:0;" />`;
+
+    // Convert newlines to BR and wrap in proper HTML structure
+    // Separate pixel in its own div to ensure it loads
+    const bodyWithBreaks = emailBody.replace(/\n/g, "<br />");
+    const htmlBody = `<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+<div>${bodyWithBreaks}</div>
+<div style="height:1px;overflow:hidden;">${trackingPixel}</div>
+</body>
+</html>`;
+    
+    console.log(`✅ Tracking pixel appended for email_log: ${logEntry.id}`);
+    console.log(`📍 Tracking URL: ${trackingUrl}`);
+    console.log(`📧 HTML Body includes tracking:`, htmlBody.includes('track-email'));
+    console.log(`📧 HTML Body last 200 chars:`, htmlBody.substring(htmlBody.length - 200));
 
     // Send email via SMTP
     const client = new SMTPClient({
@@ -120,33 +217,41 @@ serve(async (req: Request) => {
       },
     });
 
-    await client.send({
-      from: `${smtpSettings.from_name} <${smtpSettings.from_email}>`,
-      to: toEmail,
-      subject: emailSubject,
-      content: emailBody,
-      html: emailBody.replace(/\n/g, "<br>"),
-    });
+    console.log(`📨 About to send email with HTML body length: ${htmlBody.length}`);
 
-    await client.close();
+    try {
+      await client.send({
+        from: `${smtpSettings.from_name} <${smtpSettings.from_email}>`,
+        to: toEmail,
+        subject: emailSubject,
+        content: emailBody, // Plain text version
+        html: htmlBody, // HTML version with pixel
+      });
 
-    // Log the email
-    await supabase.from("email_logs").insert({
-      user_id: userId,
-      lead_id: leadId,
-      to_email: toEmail,
-      subject: emailSubject,
-      body: emailBody,
-      status: "sent",
-      sent_at: new Date().toISOString(),
-    });
+      console.log(`✅ Email sent successfully to ${toEmail}`);
 
-    // Update lead status
-    if (lead) {
-      await supabase
-        .from("leads")
-        .update({ status: "sent" })
-        .eq("id", leadId);
+      await client.close();
+
+      // 3. Update log to 'sent'
+      await supabase.from("email_logs").update({
+        status: "sent"
+      }).eq("id", logEntry.id);
+
+      // Update lead status
+      if (lead) {
+        await supabase
+          .from("leads")
+          .update({ status: "Intro Sent" })
+          .eq("id", leadId);
+      }
+    } catch (sendError) {
+      // Update log to 'failed'
+      await supabase.from("email_logs").update({
+        status: "failed",
+        error_message: (sendError as Error).message
+      }).eq("id", logEntry.id);
+
+      throw sendError;
     }
 
     return new Response(
@@ -162,7 +267,7 @@ serve(async (req: Request) => {
   }
 });
 
-function generateEmailBody(lead: any, senderName: string): string {
+function generateEmailBody(lead: Lead | null, senderName: string): string {
   if (!lead) {
     return `Hi,
 

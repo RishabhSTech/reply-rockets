@@ -27,11 +27,13 @@ interface Lead {
 }
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-muted text-muted-foreground border-border",
-  contacted: "bg-warning/10 text-warning border-warning/20",
-  sent: "bg-primary/10 text-primary border-primary/20",
-  replied: "bg-success/10 text-success border-success/20",
-  meeting: "bg-accent/10 text-accent border-accent/20",
+  "Pending": "bg-muted text-muted-foreground border-border",
+  "Intro Sent": "bg-primary/10 text-primary border-primary/20",
+  "Replied": "bg-success/10 text-success border-success/20",
+  "1st Follow Up": "bg-warning/10 text-warning border-warning/20",
+  "2nd Follow Up": "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  "Not Interested": "bg-destructive/10 text-destructive border-destructive/20",
+  "Meeting Booked": "bg-purple-500/10 text-purple-500 border-purple-500/20",
 };
 
 export function LeadsList() {
@@ -81,7 +83,7 @@ export function LeadsList() {
       });
 
       if (response.error) throw new Error(response.error.message);
-      
+
       toast.success("Email sent!");
       loadLeads();
     } catch (error: any) {
@@ -188,6 +190,36 @@ export function LeadsList() {
               </div>
 
               <div className="flex items-center gap-1 flex-shrink-0">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 text-xs">
+                      Status
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {Object.keys(statusStyles).map((status) => (
+                      <DropdownMenuItem
+                        key={status}
+                        onClick={async () => {
+                          const { error } = await supabase
+                            .from("leads")
+                            .update({ status })
+                            .eq("id", lead.id);
+
+                          if (error) {
+                            toast.error("Failed to update status");
+                          } else {
+                            toast.success(`Status updated to ${status}`);
+                            setLeads(prev => prev.map(l => l.id === lead.id ? { ...l, status } : l));
+                          }
+                        }}
+                      >
+                        {status}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
                 {lead.email && (
                   <Button
                     variant="ghost"

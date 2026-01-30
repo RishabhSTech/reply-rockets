@@ -40,18 +40,19 @@ export interface AICompletionResponse {
  * Provider configurations
  * Store API keys in environment variables for security
  */
+// Provider naming constants
 export const providerConfigs: Record<AIProvider, Omit<AIProviderConfig, 'apiKey'>> = {
     claude: {
         name: 'claude',
-        baseUrl: 'https://api.anthropic.com/v1',
-        model: 'claude-3-5-sonnet-20241022', // Latest Claude model
+        baseUrl: '', // Handle in Edge Function
+        model: 'claude-3-5-sonnet-20241022',
         maxTokens: 1024,
         temperature: 0.7,
     },
     openai: {
         name: 'openai',
-        baseUrl: 'https://api.openai.com/v1',
-        model: 'gpt-4o-mini', // Cost-effective GPT-4 variant
+        baseUrl: '', // Handle in Edge Function
+        model: 'gpt-4o-mini',
         maxTokens: 1024,
         temperature: 0.7,
     },
@@ -70,21 +71,15 @@ export const providerConfigs: Record<AIProvider, Omit<AIProviderConfig, 'apiKey'
 export function getProviderConfig(provider: AIProvider): AIProviderConfig {
     const config = providerConfigs[provider];
 
+    // For Lovable, we might still use client-side key if it's a proxy service designed for frontend
+    // For others, we don't need the key in the frontend as it's handled by Edge Function
     let apiKey = '';
-    switch (provider) {
-        case 'claude':
-            apiKey = import.meta.env.VITE_CLAUDE_API_KEY || '';
-            break;
-        case 'openai':
-            apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
-            break;
-        case 'lovable':
-            apiKey = import.meta.env.VITE_LOVABLE_API_KEY || '';
-            break;
-    }
 
-    if (!apiKey) {
-        throw new Error(`API key not configured for provider: ${provider}`);
+    if (provider === 'lovable') {
+        apiKey = import.meta.env.VITE_LOVABLE_API_KEY || '';
+        if (!apiKey) {
+            console.warn(`API key not configured for provider: ${provider}`);
+        }
     }
 
     return {
@@ -96,101 +91,57 @@ export function getProviderConfig(provider: AIProvider): AIProviderConfig {
 /**
  * Call AI provider with unified interface
  */
+// Import Supabase client to call functions
+import { supabase } from "@/integrations/supabase/client";
+
 export async function callAIProvider(
     provider: AIProvider,
     request: AICompletionRequest
 ): Promise<AICompletionResponse> {
     const config = getProviderConfig(provider);
 
-    switch (provider) {
-        case 'claude':
-            return callClaude(config, request);
-        case 'openai':
-            return callOpenAI(config, request);
-        case 'lovable':
-            return callLovable(config, request);
-        default:
-            throw new Error(`Unsupported provider: ${provider}`);
+    // If provider is Lovable, keep existing implementation (assuming it's a frontend gateway)
+    // Otherwise, route through Supabase Edge Function
+    if (provider === 'lovable') {
+        return callLovable(config, request);
     }
+
+    return callEdgeFunction(provider, config, request);
 }
 
 /**
- * Claude API implementation
+ * Call Supabase Edge Function for secure AI processing
  */
-async function callClaude(
+async function callEdgeFunction(
+    provider: AIProvider,
     config: AIProviderConfig,
     request: AICompletionRequest
 ): Promise<AICompletionResponse> {
-    const response = await fetch(`${config.baseUrl}/messages`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': config.apiKey,
-            'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-            model: config.model,
-            max_tokens: request.maxTokens || config.maxTokens,
-            temperature: request.temperature ?? config.temperature,
-            messages: request.messages.filter(m => m.role !== 'system'),
-            system: request.messages.find(m => m.role === 'system')?.content,
-        }),
-    });
-
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`Claude API error: ${error.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-
-    return {
-        content: data.content[0].text,
-        usage: {
-            promptTokens: data.usage.input_tokens,
-            completionTokens: data.usage.output_tokens,
-            totalTokens: data.usage.input_tokens + data.usage.output_tokens,
-        },
-    };
-}
-
-/**
- * OpenAI API implementation
- */
-async function callOpenAI(
-    config: AIProviderConfig,
-    request: AICompletionRequest
-): Promise<AICompletionResponse> {
-    const response = await fetch(`${config.baseUrl}/chat/completions`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${config.apiKey}`,
-        },
-        body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke('chat-completion', {
+        body: {
+            provider,
             model: config.model,
             messages: request.messages,
             temperature: request.temperature ?? config.temperature,
-            max_tokens: request.maxTokens || config.maxTokens,
-        }),
+            maxTokens: request.maxTokens || config.maxTokens,
+        },
     });
 
-    if (!response.ok) {
-        const error = await response.json();
-        throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+    if (error) {
+        throw new Error(`Edge Function error: ${error.message}`);
     }
 
-    const data = await response.json();
+    if (!data) {
+        throw new Error('No data returned from AI service');
+    }
 
     return {
-        content: data.choices[0].message.content,
-        usage: {
-            promptTokens: data.usage.prompt_tokens,
-            completionTokens: data.usage.completion_tokens,
-            totalTokens: data.usage.total_tokens,
-        },
+        content: data.content,
+        usage: data.usage,
     };
 }
+
+
 
 /**
  * Lovable AI Gateway implementation (existing)
