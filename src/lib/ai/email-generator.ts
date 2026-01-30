@@ -56,6 +56,7 @@ export async function generateEmail(
 
     // Build optimized prompts
     const systemPrompt = buildSystemPrompt(context.companyInfo);
+    // User prompt now includes history if present in context
     const userPrompt = buildUserPrompt(context);
 
     // Prepare messages

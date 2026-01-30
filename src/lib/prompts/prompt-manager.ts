@@ -24,6 +24,11 @@ export interface PromptContext {
         keyBenefits?: string;
     };
     tone: ToneType;
+    previousEmails?: {
+        subject: string;
+        body: string;
+        sentAt: string;
+    }[];
 }
 
 export interface GeneratedEmail {
@@ -36,29 +41,33 @@ export interface GeneratedEmail {
  * with specific context. This approach minimizes redundancy.
  */
 export function buildSystemPrompt(companyInfo?: PromptContext['companyInfo']): string {
-    const { cmo_bot_context, cold_email_writer } = emailTemplates.templates;
+    const { cmo_bot_context, cold_email_framework, cold_email_writer } = emailTemplates.templates;
 
-    // Core principles (sent once per session)
-    const corePrinciples = `You are an expert ${cmo_bot_context.role}.
+    // Core principles from CMO bot context
+    const corePrinciples = `You are an elite ${cmo_bot_context.role}.
 
-WRITING RULES:
-- Max ${cold_email_writer.structure.body.max_words} words
-- Subject: max ${cold_email_writer.structure.subject_line.max_chars} chars
-- Tone: ${cmo_bot_context.writing_principles.tone}
-- Style: ${cmo_bot_context.writing_principles.style}
+POSITIONING:
+${cmo_bot_context.positioning}
 
-FORBIDDEN:
-- Words: ${cmo_bot_context.forbidden_words.join(', ')}
-- Never use exclamation marks
-- No corporate buzzwords
+WRITING PRINCIPLES:
+${cmo_bot_context.writing_principles.map(p => `- ${p}`).join('\n')}
 
-STRUCTURE:
-${cold_email_writer.structure.body.structure.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+TONE RULES:
+${cmo_bot_context.tone_rules.map(t => `- ${t}`).join('\n')}
 
-CTA STYLE: ${cold_email_writer.structure.cta.style}
-Examples: ${cold_email_writer.structure.cta.examples.slice(0, 2).join(', ')}`;
+AVOID ALL:
+${cmo_bot_context.forbidden_language.map(f => `- ${f}`).join('\n')}
 
-    // Add company context if available (optional, only when needed)
+EMAIL FRAMEWORK:
+${cold_email_framework.structure.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+
+SUBJECT LINE RULES:
+${cold_email_framework.subject_line_rules.map(r => `- ${r}`).join('\n')}
+
+CTA APPROACH:
+${cold_email_framework.cta_styles.map(c => `- ${c}`).join('\n')}`;
+
+    // Add company context if available
     const companyContext = companyInfo?.companyName
         ? `\n\nYOUR COMPANY:
 - Name: ${companyInfo.companyName}
@@ -82,7 +91,7 @@ OUTPUT FORMAT (JSON only):
  */
 export function buildUserPrompt(context: PromptContext): string {
     const { tone_variations } = emailTemplates.templates;
-    const toneDesc = tone_variations[context.tone]?.characteristics || 'professional';
+    const toneDesc = tone_variations[context.tone]?.description || 'professional';
 
     return `Write a ${context.tone} email (${toneDesc}) for:
 
@@ -94,6 +103,15 @@ ${context.leadCompany ? `- Company: ${context.leadCompany}` : ''}
 ${context.leadLinkedIn ? `- LinkedIn: ${context.leadLinkedIn}` : ''}
 ${context.leadWebsite ? `- Website: ${context.leadWebsite}` : ''}
 
+HISTORY (Previous emails sent):
+${context.previousEmails?.map((e, i) => `
+Email ${i + 1} (${e.sentAt}):
+Subject: ${e.subject}
+Body: ${e.body}
+`).join('\n') || 'None'}
+
+User has NOT replied to the above emails. This is a follow-up.
+
 Requirements: Max ${emailTemplates.templates.cold_email_writer.structure.body.max_words} words, no fluff, curiosity-driven CTA.`;
 }
 
@@ -101,8 +119,8 @@ Requirements: Max ${emailTemplates.templates.cold_email_writer.structure.body.ma
  * Get industry-specific context for enhanced personalization
  * This is optional and can be used for additional context
  */
-export function getIndustryContext(industry: keyof typeof emailTemplates.templates.industry_specific_contexts) {
-    return emailTemplates.templates.industry_specific_contexts[industry];
+export function getIndustryContext(industry: keyof typeof emailTemplates.templates.industry_contexts) {
+    return emailTemplates.templates.industry_contexts[industry];
 }
 
 /**
@@ -128,7 +146,7 @@ export function validateEmail(email: GeneratedEmail): {
     // Check for forbidden words
     const lowerBody = email.body.toLowerCase();
     const lowerSubject = email.subject.toLowerCase();
-    const foundForbidden = emailTemplates.templates.cmo_bot_context.forbidden_words.filter(
+    const foundForbidden = emailTemplates.templates.cmo_bot_context.forbidden_language.filter(
         word => lowerBody.includes(word) || lowerSubject.includes(word)
     );
 

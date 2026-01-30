@@ -10,6 +10,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { MobileSidebar } from "./Sidebar";
+import { useLocation, useNavigate } from "react-router-dom";
 
 interface HeaderProps {
   title: string;
@@ -17,9 +19,13 @@ interface HeaderProps {
 }
 
 export function Header({ title, onNewCampaign }: HeaderProps) {
+  const location = useLocation();
+  const navigate = useNavigate();
+
   return (
-    <header className="flex items-center justify-between h-16 px-6 bg-card border-b border-border">
+    <header className="flex items-center justify-between h-16 px-4 md:px-6 bg-card border-b border-border">
       <div className="flex items-center gap-4">
+        <MobileSidebar currentPath={location.pathname} onNavigate={(path) => navigate(path)} />
         <h1 className="text-xl font-semibold text-foreground">{title}</h1>
       </div>
 

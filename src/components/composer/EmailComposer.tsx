@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,7 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles, Copy, RefreshCw, Send, Wand2, Users, Loader2 } from "lucide-react";
+import { Sparkles, Copy, RefreshCw, Send, Wand2, Users, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 interface Lead {
   id: string;
@@ -23,6 +24,13 @@ interface Lead {
   email: string | null;
   founder_linkedin: string | null;
   website_url: string | null;
+}
+
+interface Campaign {
+  id: string;
+  name: string;
+  status: string;
+  prompt_json?: any;
 }
 
 interface CompanyInfo {
@@ -44,12 +52,36 @@ export function EmailComposer({ className }: EmailComposerProps) {
   const [body, setBody] = useState("");
   const [tone, setTone] = useState("professional");
   const [leads, setLeads] = useState<Lead[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string>("");
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+  const [showPreview, setShowPreview] = useState(false);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  // Helper function to log errors
+  const logError = async (component: string, message: string, details?: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      await supabase.from("error_logs").insert({
+        user_id: user.id,
+        component,
+        error_message: message,
+        error_details: details,
+      });
+
+      console.error(`[${component}] ${message}`, details);
+    } catch (err) {
+      console.error("Failed to log error:", err);
+    }
+  };
 
   useEffect(() => {
     loadLeads();
+    loadCampaigns();
     loadCompanyInfo();
   }, []);
 
@@ -64,13 +96,29 @@ export function EmailComposer({ className }: EmailComposerProps) {
     }
   };
 
+  const loadCampaigns = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { data, error } = await supabase
+      .from("campaigns")
+      .select("id, name, status, prompt_json")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setCampaigns(data as any);
+    }
+  };
+
   const loadCompanyInfo = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
     const { data } = await supabase
       .from("company_info")
-      .select("company_name, description, value_proposition, target_audience, key_benefits")
+      .select("company_name, description, value_proposition, target_audience, key_benefits, context_json")
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -99,35 +147,55 @@ export function EmailComposer({ className }: EmailComposerProps) {
       // Get selected AI provider from settings
       const provider = localStorage.getItem('ai_provider') || 'lovable';
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            leadName: selectedLead.name,
-            leadPosition: selectedLead.position,
-            leadRequirement: selectedLead.requirement,
-            leadLinkedIn: selectedLead.founder_linkedin,
-            leadWebsite: selectedLead.website_url,
-            tone,
-            companyInfo: companyInfo || {},
-            provider, // Include selected AI provider
-          }),
-        }
-      );
+      // Send lead research data for personalized email generation
+      // This includes website and LinkedIn URLs to enable AI to write emails
+      // that sound like they were researched (not generic mass emails)
+      const { data, error } = await supabase.functions.invoke('generate-email', {
+        body: {
+          leadName: selectedLead.name,
+          leadPosition: selectedLead.position,
+          leadRequirement: selectedLead.requirement,
+          leadLinkedIn: selectedLead.founder_linkedin,
+          leadWebsite: selectedLead.website_url,
+          tone,
+          companyInfo: companyInfo || {},
+          contextJson: (companyInfo as any)?.context_json, // Pass rich context if available
+          campaignContext: campaigns.find(c => c.id === selectedCampaignId)?.prompt_json,
+          provider,
+        },
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate email");
+      if (error) throw error;
+
+      setSubject(data.subject || "");
+
+      // Append signature using SMTP from_name setting
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: smtpSettings, error: smtpError } = await supabase
+        .from("smtp_settings")
+        .select("from_name")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      const senderName = smtpSettings?.from_name || user?.user_metadata?.full_name || user?.user_metadata?.name || "Founder";
+      
+      // Check if body already has a signature or closing
+      const bodyText = data.body || "";
+      const hasSalutation = /\n(Best|Thanks|Regards|Sincerely|Kind regards|Cheers|Looking forward)[,.\s]/i.test(bodyText);
+      const hasSenderName = bodyText.includes(senderName);
+      
+      // Only add signature if not already present
+      let finalBody = bodyText;
+      if (!hasSalutation && !hasSenderName) {
+        finalBody = bodyText + `\n\nBest,\n${senderName}`;
+      } else if (hasSalutation && !hasSenderName) {
+        // Has salutation but missing name - add name
+        finalBody = bodyText + `\n${senderName}`;
       }
 
-      const data = await response.json();
-      setSubject(data.subject || "");
-      setBody(data.body || "");
+      setBody(finalBody);
 
       toast({
         title: "Email generated",
@@ -135,6 +203,11 @@ export function EmailComposer({ className }: EmailComposerProps) {
       });
     } catch (error) {
       console.error("Generation error:", error);
+      await logError(
+        "EmailComposer",
+        error instanceof Error ? error.message : "Unknown generation error",
+        { error: String(error) }
+      );
       toast({
         title: "Generation failed",
         description: error instanceof Error ? error.message : "Failed to generate email",
@@ -164,48 +237,78 @@ export function EmailComposer({ className }: EmailComposerProps) {
       return;
     }
 
+    if (!selectedCampaignId) {
+      toast({
+        title: "Select campaign",
+        description: "Please select a campaign to send this email to",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSending(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Replace placeholder with actual name
       const personalizedBody = body.replace(/\{\{name\}\}/gi, selectedLead.name.split(" ")[0]);
 
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-email`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-          },
-          body: JSON.stringify({
-            to: selectedLead.email,
-            subject,
-            body: personalizedBody,
-            leadId: selectedLead.id,
-            userId: user.id,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to send email");
-      }
-
-      toast({
-        title: "Email sent",
-        description: `Email sent to ${selectedLead.email}`,
+      // Send email via edge function
+      const { data: emailData, error: sendError } = await supabase.functions.invoke('send-email', {
+        body: {
+          toEmail: selectedLead.email,
+          subject,
+          body: personalizedBody,
+          leadId: selectedLead.id,
+          userId: user.id,
+          campaignId: selectedCampaignId,
+          emailType: "intro", // Label as intro email
+        },
       });
 
-      // Clear the form
+      if (sendError) throw sendError;
+
+      toast({
+        title: "Email sent successfully",
+        description: `Email sent to ${selectedLead.email}. Redirecting to campaign...`,
+      });
+
+      // Log email to database with campaign reference
+      await supabase.from("email_logs").insert({
+        user_id: user.id,
+        lead_id: selectedLead.id,
+        campaign_id: selectedCampaignId,
+        to_email: selectedLead.email,
+        subject,
+        body: personalizedBody,
+        status: "sent",
+        sent_at: new Date().toISOString(),
+      });
+
+      // Update lead's campaign_id if not already set
+      await supabase
+        .from("leads")
+        .update({ campaign_id: selectedCampaignId })
+        .eq("id", selectedLead.id);
+
+      // Clear form
       setSubject("");
       setBody("");
       setSelectedLeadId("");
+      setSelectedCampaignId("");
+      setShowPreview(false);
+
+      // Redirect to campaign details
+      setTimeout(() => {
+        navigate(`/campaigns/${selectedCampaignId}`);
+      }, 1500);
     } catch (error) {
       console.error("Send error:", error);
+      await logError(
+        "EmailComposer",
+        error instanceof Error ? error.message : "Unknown send error",
+        { error: String(error), leadEmail: selectedLead?.email }
+      );
       toast({
         title: "Send failed",
         description: error instanceof Error ? error.message : "Failed to send email",
@@ -238,6 +341,29 @@ export function EmailComposer({ className }: EmailComposerProps) {
       </div>
 
       <div className="p-5 space-y-5">
+        {/* Campaign Selection */}
+        <div className="space-y-2">
+          <Label htmlFor="campaign-select">Select Campaign</Label>
+          <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+            <SelectTrigger className="bg-secondary border-0">
+              <SelectValue placeholder="Choose a campaign to send to" />
+            </SelectTrigger>
+            <SelectContent>
+              {campaigns.length === 0 ? (
+                <SelectItem value="none" disabled>
+                  No active campaigns available
+                </SelectItem>
+              ) : (
+                campaigns.map((campaign) => (
+                  <SelectItem key={campaign.id} value={campaign.id}>
+                    <span>{campaign.name}</span>
+                  </SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+
         {/* Lead Selection */}
         <div className="space-y-2">
           <Label htmlFor="lead-select">Select Lead</Label>
@@ -291,15 +417,6 @@ export function EmailComposer({ className }: EmailComposerProps) {
           </Select>
         </div>
 
-        {/* Company Info Status */}
-        {!companyInfo?.company_name && (
-          <div className="p-3 rounded-lg bg-warning/10 border border-warning/20 text-sm">
-            <p className="text-warning-foreground">
-              💡 Add your company info in Settings for better personalization
-            </p>
-          </div>
-        )}
-
         {/* Generate Button */}
         <Button
           onClick={handleGenerate}
@@ -322,6 +439,48 @@ export function EmailComposer({ className }: EmailComposerProps) {
         {/* Generated Email */}
         {(subject || body) && (
           <div className="space-y-4 pt-4 border-t border-border">
+            {/* Preview Toggle */}
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm font-medium">Preview & Edit</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 text-xs gap-1.5"
+                onClick={() => setShowPreview(!showPreview)}
+              >
+                {showPreview ? (
+                  <>
+                    <EyeOff className="w-3 h-3" />
+                    Hide Preview
+                  </>
+                ) : (
+                  <>
+                    <Eye className="w-3 h-3" />
+                    Show Preview
+                  </>
+                )}
+              </Button>
+            </div>
+
+            {/* Preview Section */}
+            {showPreview && (
+              <div className="mb-4 p-4 rounded-lg bg-muted border border-border">
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">Subject</span>
+                    <p className="mt-1 text-sm font-medium break-words">{subject}</p>
+                  </div>
+                  <div>
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">Preview</span>
+                    <div className="mt-1 text-sm whitespace-pre-wrap break-words bg-background p-3 rounded border max-h-64 overflow-y-auto">
+                      {body.replace(/\{\{name\}\}/gi, selectedLead?.name?.split(" ")[0] || "[First Name]")}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Edit Fields */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <Label htmlFor="subject">Subject Line</Label>
@@ -381,16 +540,16 @@ export function EmailComposer({ className }: EmailComposerProps) {
                 Regenerate
               </Button>
               <Button
-                className="flex-1 gap-2"
+                className="flex-1 gap-2 bg-gradient-to-r from-emerald-600 to-emerald-600/80 hover:from-emerald-700 hover:to-emerald-700/80"
                 onClick={handleSendEmail}
-                disabled={isSending || !selectedLead?.email}
+                disabled={isSending || !selectedLead?.email || !selectedCampaignId}
               >
                 {isSending ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
                   <Send className="w-4 h-4" />
                 )}
-                Send Email
+                {isSending ? "Sending..." : "Send to Campaign"}
               </Button>
             </div>
           </div>

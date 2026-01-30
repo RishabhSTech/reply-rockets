@@ -20,7 +20,9 @@ interface GenerateEmailRequest {
     targetAudience?: string;
     keyBenefits?: string;
   };
+  contextJson?: any;
   provider?: 'claude' | 'openai' | 'lovable';
+  campaignContext?: any;
 }
 
 // Import the refined prompt templates
@@ -58,62 +60,139 @@ const emailTemplates = {
 };
 
 /**
- * Build optimized system prompt
+ * Build optimized system prompt with research-based personalization
  */
-function buildSystemPrompt(companyInfo?: GenerateEmailRequest['companyInfo']): string {
-  const { cmo_bot_context, cold_email_writer } = emailTemplates;
+function buildSystemPrompt(companyInfo?: GenerateEmailRequest['companyInfo'], contextJson?: any, campaignContext?: any): string {
+  // If rich context_json is provided (from the new settings), use that as the primary source of truth
+  let deepContextInstructions = '';
 
-  const corePrinciples = `You are an expert B2B cold email copywriter.
+  if (contextJson) {
+    // Extract the framework from context_json
+    const contextString = typeof contextJson === 'string'
+      ? contextJson
+      : JSON.stringify(contextJson, null, 2);
+
+    deepContextInstructions = `\n\nCMO BOT FRAMEWORK (Adhere strictly):
+${contextString}
+
+CRITICAL REMINDERS:
+1. Follow ALL tone_rules: no hype, no emojis, no em dashes, no bullet points
+2. Follow cold_email_framework mandatory structure
+3. Use forbidden_language list - NEVER use these words
+4. Respect subject_line_rules and cta_rules
+5. Apply assumption_safety_rules for all inferences
+6. DO NOT add signature or closing - system handles that
+`;
+  }
+
+  const corePrinciples = !deepContextInstructions ? `You are an elite AI SDR writing personalized cold emails based on genuine research.
+
+YOUR CORE APPROACH:
+- Write as if you spent 10+ minutes researching the recipient
+- Reference specific details from their website or LinkedIn that show real attention
+- Sound like a peer who understands their business, not a salesperson
+- Every detail must come from their actual role, company, or visible projects
+- Build credibility through specificity, not flattery
 
 WRITING RULES:
-- Max ${cold_email_writer.body.max_words} words
-- Subject: max ${cold_email_writer.structure.subject_line.max_chars} chars
-- Tone: ${cmo_bot_context.writing_principles.tone}
-- Style: ${cmo_bot_context.writing_principles.style}
+- Max 90 words
+- Subject line: max 50 chars
+- One specific observation that proves you researched them
+- Clear connection between their situation and what you offer
+- Soft, confident CTA that assumes relevance
+- DO NOT INCLUDE A CLOSING SALUTATION OR SIGNATURE (e.g. "Best,", "Thanks,", "[Name]", "Looking forward", "Regards"). Return ONLY the body paragraphs.
+- If you accidentally included "Best," or a signature, REMOVE IT before returning.
+- End your response with the CTA question or statement, nothing after that.
 
-FORBIDDEN:
-- Words: ${cmo_bot_context.forbidden_words.join(', ')}
-- Never use exclamation marks
-- No corporate buzzwords
+FORBIDDEN - NEVER USE:
+- "I noticed you're hiring" (too generic)
+- "We help companies like yours" (vague)
+- "Happy to chat" (desperate)
+- "Let me know if interested" (weak)
+- Exclamation marks, emojis, hype language, or em dashes (—)
+- Agency speak: "synergy", "leverage", "innovative", "cutting-edge", "disruptive", "game-changing"
+- Double hyphens (--) or em dashes (—) - use single hyphens (-) only
 
-CTA STYLE: ${cold_email_writer.structure.cta.style}
-Examples: ${cold_email_writer.structure.cta.examples.slice(0, 2).join(', ')}`;
+CTA EXAMPLES THAT WORK:
+- "Worth a 15-minute conversation?"
+- "Curious if this approach makes sense for your situation?"
+- "Open to exploring how we've helped similar teams?"
 
-  const companyContext = companyInfo?.companyName
-    ? `\n\nYOUR COMPANY:
+RESEARCH SIGNALS:
+- Reference something from their LinkedIn profile (recent hire, post, company move)
+- Mention specific product/feature you saw on their website
+- Connect to their job description or visible goals
+- Show understanding of their industry challenges
+- Demonstrate you know what they're actually working on` : '';
+
+  // Only add legacy company context if NO deep context was provided
+  const companyContextStr = (!deepContextInstructions && companyInfo?.companyName)
+    ? `\n\nYOUR COMPANY (Use this for context, don't hard-sell):
 - Name: ${companyInfo.companyName}
 - What we do: ${companyInfo.description || 'Not specified'}
-- Value prop: ${companyInfo.valueProposition || 'Not specified'}
+- Value prop: ${companyInfo.valueProposition || 'Not specified'} (Make this THEIR benefit, not our feature)
 - Target: ${companyInfo.targetAudience || 'Not specified'}
-- Benefits: ${companyInfo.keyBenefits || 'Not specified'}`
+- How we help: ${companyInfo.keyBenefits || 'Not specified'}`
     : '';
 
-  return `${corePrinciples}${companyContext}
+  const customInstructions = campaignContext
+    ? `\n\nCAMPAIGN SPECIFIC INSTRUCTIONS (PRIORITIZE THESE):
+${typeof campaignContext === 'string' ? campaignContext : JSON.stringify(campaignContext, null, 2)}`
+    : '';
 
-OUTPUT FORMAT (JSON only):
+  return `${corePrinciples}${deepContextInstructions}${companyContextStr}${customInstructions}
+
+OUTPUT FORMAT (JSON ONLY):
 {
   "subject": "subject line here",
-  "body": "email body with {{name}} placeholder"
+  "body": "email body (no signature, no salutation)"
 }`;
 }
 
 /**
- * Build user prompt
+ * Build user prompt with research signals and context
  */
 function buildUserPrompt(request: GenerateEmailRequest): string {
   const toneDesc = emailTemplates.tone_variations[request.tone as keyof typeof emailTemplates.tone_variations]?.characteristics || 'professional';
 
-  return `Write a ${request.tone} email (${toneDesc}) for:
+  // Build research context - this is what signals "I did my homework"
+  let researchContext = '';
 
-LEAD:
-- Name: ${request.leadName}
+  if (request.leadWebsite) {
+    researchContext += `\nVISITED THEIR WEBSITE: ${request.leadWebsite}`;
+  }
+
+  if (request.leadLinkedIn) {
+    researchContext += `\nVISITED THEIR LINKEDIN: ${request.leadLinkedIn}`;
+  }
+
+  const prompt = `Write a ${request.tone} cold email (${toneDesc}) for someone you genuinely researched.
+
+ABOUT THE RECIPIENT:
+- Name: {{name}} (first name only, use placeholder)
 - Role: ${request.leadPosition}
 ${request.leadCompany ? `- Company: ${request.leadCompany}` : ''}
-- Context: ${request.leadRequirement}
-${request.leadLinkedIn ? `- LinkedIn: ${request.leadLinkedIn}` : ''}
-${request.leadWebsite ? `- Website: ${request.leadWebsite}` : ''}
+- What they're working on: ${request.leadRequirement}
+${researchContext}
 
-Requirements: Max ${emailTemplates.cold_email_writer.body.max_words} words, no fluff, curiosity-driven CTA.`;
+YOUR TASK:
+1. Use research details from their website/LinkedIn to show you actually know them
+2. Reference something specific they're doing (new hire, visible goal, product feature, etc.)
+3. Connect their situation to YOUR value prop (what makes YOUR company relevant to THEIR role)
+4. Be conversational and warm, but respect their time
+5. Make them feel like this wasn't a mass email
+
+REQUIRED:
+- Max 90 words
+- One clear observation that proves you researched
+- One specific problem they likely face in their role
+- One reason YOUR company helps with that problem
+- Soft CTA (not "let me know if interested")
+- Zero hype language
+
+REMEMBER: Sound like a peer who did homework, not a salesperson running a script.`;
+
+  return prompt;
 }
 
 /**
@@ -232,16 +311,26 @@ async function callLovable(messages: any[]): Promise<string> {
  */
 function parseEmailResponse(content: string): { subject: string; body: string } {
   try {
+    // Try to find JSON object in response
     const jsonMatch = content.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       const parsed = JSON.parse(jsonMatch[0]);
+      
+      console.log("✅ Successfully parsed JSON response:");
+      console.log("   - Subject:", parsed.subject?.substring(0, 50));
+      console.log("   - Body length:", parsed.body?.length);
+      
       return {
         subject: parsed.subject || "Quick question",
         body: parsed.body || content,
       };
+    } else {
+      console.warn("⚠️ No JSON found in response. Raw response:");
+      console.log(content.substring(0, 500));
     }
   } catch (error) {
-    console.error("Failed to parse JSON:", error);
+    console.error("❌ Failed to parse JSON:", error);
+    console.error("Raw content:", content.substring(0, 500));
   }
 
   return {
@@ -257,11 +346,28 @@ serve(async (req) => {
 
   try {
     const request: GenerateEmailRequest = await req.json();
-    const provider = request.provider || 'lovable';
+    const provider = request.provider || 'openai'; // Default to OpenAI
+
+    // Log request details
+    console.log("📧 Email Generation Request:");
+    console.log("  - Lead:", request.leadName, `(${request.leadPosition})`);
+    console.log("  - Provider:", provider);
 
     // Build prompts using refined templates
-    const systemPrompt = buildSystemPrompt(request.companyInfo);
+    const systemPrompt = buildSystemPrompt(request.companyInfo, request.contextJson, request.campaignContext);
     const userPrompt = buildUserPrompt(request);
+
+    // DEBUG: Log exact system prompt being sent
+    console.log("\n🔍 SYSTEM PROMPT BEING SENT:");
+    console.log("=====================================");
+    console.log(systemPrompt);
+    console.log("=====================================\n");
+
+    // DEBUG: Log user prompt
+    console.log("🔍 USER PROMPT BEING SENT:");
+    console.log("=====================================");
+    console.log(userPrompt);
+    console.log("=====================================\n");
 
     // Call AI provider
     const content = await callAIProvider(provider, systemPrompt, userPrompt);
@@ -269,12 +375,14 @@ serve(async (req) => {
     // Parse response
     const emailData = parseEmailResponse(content);
 
+    console.log("✅ Email generated successfully");
+
     return new Response(JSON.stringify(emailData), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (error) {
-    console.error("generate-email error:", error);
+    console.error("❌ generate-email error:", error);
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : "Unknown error" }),
       {
