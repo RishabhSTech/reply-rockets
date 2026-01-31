@@ -97,7 +97,8 @@ export function CampaignLeads({ campaignId }: CampaignLeadsProps) {
     );
 
     return (
-        <Card>
+        <>
+            <Card>
             <CardHeader>
                 <div className="flex items-center justify-between">
                     <div>
@@ -195,5 +196,6 @@ export function CampaignLeads({ campaignId }: CampaignLeadsProps) {
             campaignId={campaignId}
             onLeadsAdded={loadLeads}
         />
+        </>
     );
 }
