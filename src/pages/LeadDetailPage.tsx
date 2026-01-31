@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, RefreshCw, Mail, Linkedin, Globe, User, Briefcase, Sparkles } from "lucide-react";
-import { PromptGenerator } from "@/components/leads/PromptGenerator";
+import { ArrowLeft, Loader2, RefreshCw, Mail, Linkedin, Globe, User, Briefcase } from "lucide-react";
 
 interface Lead {
   id: string;
@@ -233,10 +232,6 @@ export function LeadDetailPage() {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="persona">Persona</TabsTrigger>
-          <TabsTrigger value="ai-prompts">
-            <Sparkles className="w-4 h-4 mr-2" />
-            AI Prompts
-          </TabsTrigger>
           <TabsTrigger value="email-preview">Email Preview</TabsTrigger>
         </TabsList>
 
@@ -400,11 +395,6 @@ export function LeadDetailPage() {
               )}
             </CardContent>
           </Card>
-        </TabsContent>
-
-        {/* AI Prompts Tab */}
-        <TabsContent value="ai-prompts">
-          {lead && <PromptGenerator leadId={lead.id} leadProfile={lead} />}
         </TabsContent>
 
         {/* Email Preview Tab */}

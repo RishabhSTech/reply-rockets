@@ -72,8 +72,8 @@ export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
 
       if (!error && data) {
         setCampaign(data as any);
-        if (data.sequence) {
-          setSequenceSteps(data.sequence);
+        if ((data as any).sequence && Array.isArray((data as any).sequence)) {
+          setSequenceSteps((data as any).sequence);
         }
       }
     };
