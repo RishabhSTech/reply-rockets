@@ -17,24 +17,36 @@ export type Database = {
       campaigns: {
         Row: {
           created_at: string
+          emails_sent: number
           id: string
+          last_run_at: string | null
           name: string
+          prompt_json: Json | null
+          sequence: Json | null
           status: string
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
+          emails_sent?: number
           id?: string
+          last_run_at?: string | null
           name: string
+          prompt_json?: Json | null
+          sequence?: Json | null
           status?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
+          emails_sent?: number
           id?: string
+          last_run_at?: string | null
           name?: string
+          prompt_json?: Json | null
+          sequence?: Json | null
           status?: string
           updated_at?: string
           user_id?: string
@@ -44,6 +56,7 @@ export type Database = {
       company_info: {
         Row: {
           company_name: string | null
+          context_json: Json | null
           created_at: string
           description: string | null
           id: string
@@ -55,6 +68,7 @@ export type Database = {
         }
         Insert: {
           company_name?: string | null
+          context_json?: Json | null
           created_at?: string
           description?: string | null
           id?: string
@@ -66,6 +80,7 @@ export type Database = {
         }
         Update: {
           company_name?: string | null
+          context_json?: Json | null
           created_at?: string
           description?: string | null
           id?: string
@@ -88,6 +103,7 @@ export type Database = {
           lead_id: string | null
           opened_at: string | null
           sent_at: string | null
+          sequence_id: string | null
           status: string
           subject: string
           to_email: string
@@ -103,6 +119,7 @@ export type Database = {
           lead_id?: string | null
           opened_at?: string | null
           sent_at?: string | null
+          sequence_id?: string | null
           status?: string
           subject: string
           to_email: string
@@ -118,6 +135,7 @@ export type Database = {
           lead_id?: string | null
           opened_at?: string | null
           sent_at?: string | null
+          sequence_id?: string | null
           status?: string
           subject?: string
           to_email?: string
@@ -136,6 +154,13 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "email_logs_sequence_id_fkey"
+            columns: ["sequence_id"]
+            isOneToOne: false
+            referencedRelation: "sequences"
             referencedColumns: ["id"]
           },
         ]
@@ -203,6 +228,36 @@ export type Database = {
           },
         ]
       }
+      error_logs: {
+        Row: {
+          component: string
+          created_at: string | null
+          error_details: Json | null
+          error_message: string
+          id: string
+          stack_trace: string | null
+          user_id: string
+        }
+        Insert: {
+          component: string
+          created_at?: string | null
+          error_details?: Json | null
+          error_message: string
+          id?: string
+          stack_trace?: string | null
+          user_id: string
+        }
+        Update: {
+          component?: string
+          created_at?: string | null
+          error_details?: Json | null
+          error_message?: string
+          id?: string
+          stack_trace?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           campaign_id: string | null
@@ -211,6 +266,8 @@ export type Database = {
           founder_linkedin: string | null
           id: string
           name: string
+          persona_generated_at: string | null
+          persona_insights: Json | null
           position: string
           requirement: string
           status: string
@@ -225,6 +282,8 @@ export type Database = {
           founder_linkedin?: string | null
           id?: string
           name: string
+          persona_generated_at?: string | null
+          persona_insights?: Json | null
           position: string
           requirement: string
           status?: string
@@ -239,6 +298,8 @@ export type Database = {
           founder_linkedin?: string | null
           id?: string
           name?: string
+          persona_generated_at?: string | null
+          persona_insights?: Json | null
           position?: string
           requirement?: string
           status?: string
@@ -305,6 +366,47 @@ export type Database = {
             columns: ["lead_id"]
             isOneToOne: false
             referencedRelation: "leads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sequences: {
+        Row: {
+          campaign_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          prompt_config: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          prompt_config: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          prompt_config?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sequences_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
             referencedColumns: ["id"]
           },
         ]

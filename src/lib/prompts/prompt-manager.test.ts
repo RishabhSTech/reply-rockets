@@ -137,24 +137,24 @@ describe("Prompt Manager", () => {
             const context = getIndustryContext("saas");
 
             expect(context).toBeDefined();
-            expect(context.pain_points).toContain("Customer acquisition cost");
-            expect(context.value_drivers).toContain("ROI improvement");
+            expect(context.common_pains).toContain("Engineering bandwidth gaps");
+            expect(context.value_drivers).toContain("Maintain roadmap momentum");
         });
 
         it("should return eCommerce industry context", () => {
             const context = getIndustryContext("ecommerce");
 
             expect(context).toBeDefined();
-            expect(context.pain_points).toContain("Cart abandonment");
-            expect(context.value_drivers).toContain("Conversion rate optimization");
+            expect(context.common_pains).toContain("Site performance issues");
+            expect(context.value_drivers).toContain("Revenue protection");
         });
 
-        it("should return agency industry context", () => {
-            const context = getIndustryContext("agency");
+        it("should return marketing agency industry context", () => {
+            const context = getIndustryContext("marketing_agency");
 
             expect(context).toBeDefined();
-            expect(context.pain_points).toContain("Client acquisition");
-            expect(context.value_drivers).toContain("Client retention");
+            expect(context.common_pains).toContain("Missed timelines");
+            expect(context.value_drivers).toContain("Immediate execution support");
         });
     });
 

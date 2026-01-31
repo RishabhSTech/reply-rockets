@@ -177,19 +177,35 @@ serve(async (req: Request) => {
       throw new Error("Failed to initialize email tracking");
     }
 
-    // 2. Append tracking pixel
+    // 2. Append tracking pixel and wrap links for click tracking
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    
+    // Build tracking pixel URL
     const trackingUrlObj = new URL(`${supabaseUrl}/functions/v1/track-email`);
     trackingUrlObj.searchParams.set("id", logEntry.id);
     const trackingUrl = trackingUrlObj.toString();
 
     // Ensure tracking pixel is properly formed and will be loaded
-    // Use display:block inside a container with overflow:hidden - more reliable than display:none
     const trackingPixel = `<img src="${trackingUrl}" width="1" height="1" alt="" style="display:block;border:0;" />`;
+
+    // Wrap all links in the email body with click tracking
+    const wrapLinksWithTracking = (text: string, emailLogId: string): string => {
+      // Match URLs in the text (http/https)
+      const urlRegex = /(https?:\/\/[^\s<>"']+)/gi;
+      return text.replace(urlRegex, (url) => {
+        const clickTrackUrl = new URL(`${supabaseUrl}/functions/v1/track-click`);
+        clickTrackUrl.searchParams.set("id", emailLogId);
+        clickTrackUrl.searchParams.set("url", encodeURIComponent(url));
+        return clickTrackUrl.toString();
+      });
+    };
+
+    // Apply click tracking to the email body
+    const bodyWithTrackedLinks = wrapLinksWithTracking(emailBody, logEntry.id);
 
     // Convert newlines to BR and wrap in proper HTML structure
     // Separate pixel in its own div to ensure it loads
-    const bodyWithBreaks = emailBody.replace(/\n/g, "<br />");
+    const bodyWithBreaks = bodyWithTrackedLinks.replace(/\n/g, "<br />");
     const htmlBody = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>
@@ -201,8 +217,9 @@ serve(async (req: Request) => {
     
     console.log(`✅ Tracking pixel appended for email_log: ${logEntry.id}`);
     console.log(`📍 Tracking URL: ${trackingUrl}`);
+    console.log(`🔗 Links wrapped for click tracking`);
     console.log(`📧 HTML Body includes tracking:`, htmlBody.includes('track-email'));
-    console.log(`📧 HTML Body last 200 chars:`, htmlBody.substring(htmlBody.length - 200));
+    console.log(`📧 HTML Body includes click tracking:`, htmlBody.includes('track-click'));
 
     // Send email via SMTP
     const client = new SMTPClient({

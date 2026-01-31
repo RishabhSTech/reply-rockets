@@ -31,15 +31,24 @@ export default function ErrorLogsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data, error } = await supabase
-      .from("error_logs")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(100);
-
-    if (!error && data) {
-      setLogs(data as ErrorLog[]);
+    try {
+      // Use raw fetch to query error_logs table since types may not be updated yet
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/error_logs?user_id=eq.${user.id}&order=created_at.desc&limit=100`,
+        {
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLogs(data as ErrorLog[]);
+      }
+    } catch (err) {
+      console.error("Error loading logs:", err);
     }
     setLoading(false);
   };
@@ -48,12 +57,22 @@ export default function ErrorLogsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    await supabase
-      .from("error_logs")
-      .delete()
-      .eq("user_id", user.id);
-
-    setLogs([]);
+    try {
+      const session = await supabase.auth.getSession();
+      await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/error_logs?user_id=eq.${user.id}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            'Authorization': `Bearer ${session.data.session?.access_token}`,
+          },
+        }
+      );
+      setLogs([]);
+    } catch (err) {
+      console.error("Error clearing logs:", err);
+    }
   };
 
   const getSeverity = (message: string): "error" | "warning" | "info" => {

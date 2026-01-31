@@ -66,11 +66,22 @@ export function EmailComposer({ className }: EmailComposerProps) {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      await supabase.from("error_logs").insert({
-        user_id: user.id,
-        component,
-        error_message: message,
-        error_details: details,
+      // Use raw fetch since error_logs may not be in generated types yet
+      const session = await supabase.auth.getSession();
+      await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/error_logs`, {
+        method: 'POST',
+        headers: {
+          'apikey': import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          'Authorization': `Bearer ${session.data.session?.access_token}`,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: JSON.stringify({
+          user_id: user.id,
+          component,
+          error_message: message,
+          error_details: details,
+        }),
       });
 
       console.error(`[${component}] ${message}`, details);
@@ -118,7 +129,7 @@ export function EmailComposer({ className }: EmailComposerProps) {
 
     const { data } = await supabase
       .from("company_info")
-      .select("company_name, description, value_proposition, target_audience, key_benefits, context_json")
+      .select("company_name, description, value_proposition, target_audience, key_benefits")
       .eq("user_id", user.id)
       .maybeSingle();
 
