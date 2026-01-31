@@ -47,11 +47,10 @@ interface Lead {
   persona_insights?: any;
 }
 
-export function ManualSequenceSender() {
+export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
   
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [selectedLeadId, setSelectedLeadId] = useState<string>("");
   const [sequenceSteps, setSequenceSteps] = useState<SequenceStep[]>([]);
@@ -62,49 +61,33 @@ export function ManualSequenceSender() {
   const [isSending, setIsSending] = useState(false);
   const [sendHistory, setSendHistory] = useState<any[]>([]);
 
-  // Load campaigns
+  // Load campaign
   useEffect(() => {
-    const loadCampaigns = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
+    const loadCampaign = async () => {
       const { data, error } = await supabase
         .from("campaigns")
         .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .eq("id", campaignId)
+        .single();
 
       if (!error && data) {
-        setCampaigns(data as any);
+        setCampaign(data as any);
+        if (data.sequence) {
+          setSequenceSteps(data.sequence);
+        }
       }
     };
 
-    loadCampaigns();
-  }, []);
+    loadCampaign();
+  }, [campaignId]);
 
-  // Load sequence steps when campaign is selected
-  useEffect(() => {
-    if (selectedCampaignId) {
-      const campaign = campaigns.find(c => c.id === selectedCampaignId);
-      if (campaign?.sequence) {
-        setSequenceSteps(campaign.sequence);
-        setSelectedStepId("");
-      }
-    }
-  }, [selectedCampaignId, campaigns]);
-
-  // Load leads for selected campaign
+  // Load leads for the campaign
   useEffect(() => {
     const loadLeads = async () => {
-      if (!selectedCampaignId) {
-        setLeads([]);
-        return;
-      }
-
       const { data, error } = await supabase
         .from("leads")
         .select("*")
-        .eq("campaign_id", selectedCampaignId)
+        .eq("campaign_id", campaignId)
         .order("name");
 
       if (!error && data) {
@@ -113,7 +96,7 @@ export function ManualSequenceSender() {
     };
 
     loadLeads();
-  }, [selectedCampaignId]);
+  }, [campaignId]);
 
   // Load step details when selected
   const selectedStep = sequenceSteps.find(s => s.id === selectedStepId);
@@ -135,8 +118,6 @@ export function ManualSequenceSender() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
-
-      const campaign = campaigns.find(c => c.id === selectedCampaignId);
       
       // If custom body provided, use it directly; otherwise generate using AI with sequence prompt
       let emailSubject = customSubject || selectedStep?.config?.subject || "Follow-up";
@@ -204,7 +185,7 @@ export function ManualSequenceSender() {
           toEmail: selectedLead.email,
           subject: emailSubject,
           body: emailBody,
-          campaignId: selectedCampaignId,
+          campaignId: campaignId,
           sequenceStepId: selectedStepId,
           sentManually: true,
         },
@@ -216,7 +197,7 @@ export function ManualSequenceSender() {
       await supabase.from("email_logs").insert({
         user_id: user.id,
         lead_id: selectedLead.id,
-        campaign_id: selectedCampaignId,
+        campaign_id: campaignId,
         to_email: selectedLead.email,
         subject: emailSubject,
         body: emailBody,
@@ -268,59 +249,37 @@ export function ManualSequenceSender() {
             Manual Sequence Sender
           </CardTitle>
           <CardDescription>
-            Send specific sequence steps to individual leads manually, bypassing automation
+            Send specific sequence steps to individual leads manually, with automatic personalization
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           
-          {/* Step 1: Select Campaign */}
+          {/* Step 1: Select Lead */}
           <div className="space-y-2">
-            <Label htmlFor="campaign">Campaign</Label>
-            <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
-              <SelectTrigger id="campaign">
-                <SelectValue placeholder="Select a campaign..." />
+            <Label htmlFor="lead">Lead</Label>
+            <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
+              <SelectTrigger id="lead">
+                <SelectValue placeholder="Select a lead..." />
               </SelectTrigger>
               <SelectContent>
-                {campaigns.map(campaign => (
-                  <SelectItem key={campaign.id} value={campaign.id}>
-                    {campaign.name}
-                    <Badge variant="outline" className="ml-2 text-xs">
-                      {campaign.sequence?.length || 0} steps
-                    </Badge>
+                {leads.map(lead => (
+                  <SelectItem key={lead.id} value={lead.id}>
+                    {lead.name} {lead.position ? `(${lead.position})` : ""}
+                    <span className="text-xs text-muted-foreground ml-2">{lead.email}</span>
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            {leads.length === 0 && (
+              <p className="text-sm text-muted-foreground flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                No leads found in this campaign
+              </p>
+            )}
           </div>
 
-          {/* Step 2: Select Lead */}
-          {selectedCampaignId && (
-            <div className="space-y-2">
-              <Label htmlFor="lead">Lead</Label>
-              <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
-                <SelectTrigger id="lead">
-                  <SelectValue placeholder="Select a lead..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {leads.map(lead => (
-                    <SelectItem key={lead.id} value={lead.id}>
-                      {lead.name} {lead.position ? `(${lead.position})` : ""}
-                      <span className="text-xs text-muted-foreground ml-2">{lead.email}</span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {leads.length === 0 && (
-                <p className="text-sm text-muted-foreground flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4" />
-                  No leads found in this campaign
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Select Sequence Step */}
-          {selectedCampaignId && selectedLeadId && (
+          {/* Step 2: Select Sequence Step */}
+          {selectedLeadId && (
             <div className="space-y-2">
               <Label htmlFor="step">Sequence Step</Label>
               <Select value={selectedStepId} onValueChange={setSelectedStepId}>
@@ -341,7 +300,7 @@ export function ManualSequenceSender() {
             </div>
           )}
 
-          {/* Step 4: Customize Email */}
+          {/* Step 3: Customize Email */}
           {selectedStepId && selectedStep?.type === "email" && (
             <div className="space-y-4 p-4 bg-accent/50 rounded-lg border border-accent">
               <div className="space-y-2">

@@ -125,7 +125,7 @@ const CampaignDetailsPage = () => {
                                     />
                                 </TabsContent>
                                 <TabsContent value="manual-send">
-                                    <ManualSequenceSender />
+                                    <ManualSequenceSender campaignId={campaign.id} />
                                 </TabsContent>
                                 <TabsContent value="inbox">
                                     <CampaignInbox campaignId={campaign.id} />

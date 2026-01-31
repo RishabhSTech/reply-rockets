@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Users, ExternalLink, Linkedin, Mail, Trash2, MoreHorizontal, Send } from "lucide-react";
+import { Users, ExternalLink, Linkedin, Mail, Trash2, MoreHorizontal, Send, Copy } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -68,6 +68,19 @@ export function LeadsList() {
       toast.success("Lead deleted");
       setLeads((prev) => prev.filter((l) => l.id !== id));
     }
+  };
+
+  const handleCopyLeadData = (lead: Lead) => {
+    const leadData = `Name: ${lead.name}
+Position: ${lead.position}
+Linkedin: ${lead.founder_linkedin || "N/A"}
+Website: ${lead.website_url || "N/A"}`;
+
+    navigator.clipboard.writeText(leadData).then(() => {
+      toast.success("Lead data copied to clipboard!");
+    }).catch(() => {
+      toast.error("Failed to copy to clipboard");
+    });
   };
 
   const handleSendEmail = async (lead: Lead) => {
@@ -222,6 +235,16 @@ export function LeadsList() {
                     ))}
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => handleCopyLeadData(lead)}
+                  title="Copy lead data"
+                >
+                  <Copy className="h-4 w-4 text-muted-foreground" />
+                </Button>
 
                 {lead.email && (
                   <Button
