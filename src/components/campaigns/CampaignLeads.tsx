@@ -26,6 +26,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CsvImporter } from "./CsvImporter";
+import { AddLeadsDialog } from "./AddLeadsDialog";
 
 interface CampaignLeadsProps {
     campaignId: string;
@@ -45,6 +46,7 @@ export function CampaignLeads({ campaignId }: CampaignLeadsProps) {
     const [leads, setLeads] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
+    const [openAddDialog, setOpenAddDialog] = useState(false);
 
     useEffect(() => {
         loadLeads();
@@ -104,9 +106,9 @@ export function CampaignLeads({ campaignId }: CampaignLeadsProps) {
                     </div>
                     <div className="flex gap-2">
                         <CsvImporter campaignId={campaignId} onImportComplete={handleImportComplete} />
-                        <Button>
+                        <Button onClick={() => setOpenAddDialog(true)}>
                             <Plus className="w-4 h-4 mr-2" />
-                            Add Manually
+                            Add Leads
                         </Button>
                     </div>
                 </div>
@@ -186,5 +188,12 @@ export function CampaignLeads({ campaignId }: CampaignLeadsProps) {
                 )}
             </CardContent>
         </Card>
+
+        <AddLeadsDialog
+            open={openAddDialog}
+            onOpenChange={setOpenAddDialog}
+            campaignId={campaignId}
+            onLeadsAdded={loadLeads}
+        />
     );
 }
