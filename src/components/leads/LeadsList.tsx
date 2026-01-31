@@ -74,7 +74,8 @@ export function LeadsList() {
     const leadData = `Name: ${lead.name}
 Position: ${lead.position}
 Linkedin: ${lead.founder_linkedin || "N/A"}
-Website: ${lead.website_url || "N/A"}`;
+Website: ${lead.website_url || "N/A"}
+Requirement: ${lead.requirement}}`;
 
     navigator.clipboard.writeText(leadData).then(() => {
       toast.success("Lead data copied to clipboard!");

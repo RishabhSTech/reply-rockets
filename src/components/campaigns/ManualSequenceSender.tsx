@@ -107,11 +107,12 @@ export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
   const handleCopyLeadData = () => {
     if (!selectedLead) return;
     
-    const leadData = `${selectedLead.email}`;
+    const leadData = `Email: ${selectedLead.email}
+Requirement: ${selectedLead.requirement || "N/A"}`;
     navigator.clipboard.writeText(leadData).then(() => {
       toast({
         title: "Copied",
-        description: `${selectedLead.email} copied to clipboard`,
+        description: `Lead data copied to clipboard`,
       });
     }).catch(() => {
       toast({
