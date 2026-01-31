@@ -6,6 +6,7 @@
  */
 
 import { useState, useEffect } from "react";
+import React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -60,6 +61,9 @@ export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
   const [customBody, setCustomBody] = useState<string>("");
   const [isSending, setIsSending] = useState(false);
   const [sendHistory, setSendHistory] = useState<any[]>([]);
+  
+  // Prevent double-sends with a ref lock
+  const sendLockRef = React.useRef(false);
 
   // Load campaign
   useEffect(() => {
@@ -131,6 +135,12 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
   };
 
   const handleSendSequence = async () => {
+    // CRITICAL: Prevent double-sends - if already sending, exit immediately
+    if (isSending || sendLockRef.current) {
+      console.warn("⚠️ Send already in progress, ignoring duplicate request");
+      return;
+    }
+
     if (!selectedLeadId || !selectedStepId) {
       toast({
         title: "Missing selection",
@@ -143,6 +153,8 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
     const selectedLead = leads.find(l => l.id === selectedLeadId);
     if (!selectedLead) return;
 
+    // Set lock BEFORE state update
+    sendLockRef.current = true;
     setIsSending(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -222,18 +234,6 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
 
       if (error) throw error;
 
-      // Log the manual send
-      await supabase.from("email_logs").insert({
-        user_id: user.id,
-        lead_id: selectedLead.id,
-        campaign_id: campaignId,
-        to_email: selectedLead.email,
-        subject: emailSubject,
-        body: emailBody,
-        status: "sent",
-        sent_at: new Date().toISOString(),
-      });
-
       // Add to send history
       setSendHistory([
         {
@@ -266,6 +266,7 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
       });
     } finally {
       setIsSending(false);
+      sendLockRef.current = false;
     }
   };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import React from "react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -57,6 +58,9 @@ export function EmailComposer({ className }: EmailComposerProps) {
   const [selectedCampaignId, setSelectedCampaignId] = useState<string>("");
   const [showPreview, setShowPreview] = useState(false);
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
+  
+  // Prevent double-sends with a ref lock
+  const sendLockRef = React.useRef(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -204,6 +208,12 @@ export function EmailComposer({ className }: EmailComposerProps) {
   };
 
   const handleSendEmail = async () => {
+    // CRITICAL: Prevent double-sends - if already sending, exit immediately
+    if (isSending || sendLockRef.current) {
+      console.warn("⚠️ Send already in progress, ignoring duplicate request");
+      return;
+    }
+
     if (!selectedLead?.email) {
       toast({
         title: "No email address",
@@ -231,6 +241,8 @@ export function EmailComposer({ className }: EmailComposerProps) {
       return;
     }
 
+    // Set lock BEFORE state update
+    sendLockRef.current = true;
     setIsSending(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -256,18 +268,6 @@ export function EmailComposer({ className }: EmailComposerProps) {
       toast({
         title: "Email sent successfully",
         description: `Email sent to ${selectedLead.email}. Redirecting to campaign...`,
-      });
-
-      // Log email to database with campaign reference
-      await supabase.from("email_logs").insert({
-        user_id: user.id,
-        lead_id: selectedLead.id,
-        campaign_id: selectedCampaignId,
-        to_email: selectedLead.email,
-        subject,
-        body: personalizedBody,
-        status: "sent",
-        sent_at: new Date().toISOString(),
       });
 
       // Update lead's campaign_id if not already set
@@ -301,6 +301,7 @@ export function EmailComposer({ className }: EmailComposerProps) {
       });
     } finally {
       setIsSending(false);
+      sendLockRef.current = false;
     }
   };
 
