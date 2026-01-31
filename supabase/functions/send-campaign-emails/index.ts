@@ -96,7 +96,7 @@ serve(async (req: Request) => {
             try {
                 console.log(`Generating email for lead: ${lead.name} (${lead.email})`);
 
-                // Generate personalized email
+                // Generate personalized email with persona data
                 const generateRes = await supabaseClient.functions.invoke('generate-email', {
                     body: {
                         leadName: lead.name,
@@ -108,6 +108,8 @@ serve(async (req: Request) => {
                         tone: campaign.tone || 'professional',
                         companyInfo: companyInfo || {},
                         campaignContext: campaign.prompt_json,
+                        // Pass lead persona for pain-point-driven icebreakers
+                        leadPersona: lead.persona_insights || undefined,
                         provider,
                         providerApiKey,
                     },

@@ -41,6 +41,10 @@ interface Lead {
   position?: string;
   company?: string;
   status?: string;
+  requirement?: string;
+  founder_linkedin?: string;
+  website_url?: string;
+  persona_insights?: any;
 }
 
 export function ManualSequenceSender() {
@@ -132,9 +136,66 @@ export function ManualSequenceSender() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // If custom body provided, use it; otherwise use the step's prompt
-      const emailBody = customBody || `Generated from sequence step: ${selectedStep?.name}`;
-      const emailSubject = customSubject || selectedStep?.config?.subject || "Follow-up";
+      const campaign = campaigns.find(c => c.id === selectedCampaignId);
+      
+      // If custom body provided, use it directly; otherwise generate using AI with sequence prompt
+      let emailSubject = customSubject || selectedStep?.config?.subject || "Follow-up";
+      let emailBody = customBody;
+
+      // If no custom body, generate email using AI with sequence prompt config
+      if (!customBody) {
+        console.log("🤖 Generating email from sequence prompt with persona data...");
+        
+        // Get company info for AI generation
+        const { data: companyInfo } = await supabase
+          .from("company_info")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        // Get AI provider settings
+        const provider = localStorage.getItem("ai_provider") || "openai";
+        const providerApiKey =
+          provider === "openai"
+            ? localStorage.getItem("openai_api_key") || undefined
+            : provider === "claude"
+              ? localStorage.getItem("claude_api_key") || undefined
+              : undefined;
+
+        // Call generate-email with sequence prompt and persona
+        const { data: generatedData, error: genError } = await supabase.functions.invoke("generate-email", {
+          body: {
+            leadName: selectedLead.name,
+            leadPosition: selectedLead.position,
+            leadCompany: selectedLead.company,
+            leadRequirement: selectedLead.requirement,
+            leadLinkedIn: selectedLead.founder_linkedin,
+            leadWebsite: selectedLead.website_url,
+            tone: "professional",
+            companyInfo: companyInfo || {},
+            // CRITICAL: Pass sequence prompt config as campaign context
+            campaignContext: selectedStep?.config?.prompt ? `Sequence Step: "${selectedStep.name}"\n\nPrompt Configuration:\n${selectedStep.config.prompt}` : undefined,
+            // CRITICAL: Pass lead persona for pain-point-driven personalization
+            leadPersona: selectedLead.persona_insights || undefined,
+            provider,
+            providerApiKey,
+          },
+        });
+
+        if (genError) {
+          console.error("Email generation error:", genError);
+          throw new Error(`Failed to generate email: ${genError.message}`);
+        }
+
+        if (!generatedData?.subject || !generatedData?.body) {
+          throw new Error("Invalid email generation response");
+        }
+
+        emailSubject = generatedData.subject;
+        emailBody = generatedData.body;
+        
+        console.log("✅ Email generated successfully with persona data");
+      }
 
       // Send email via edge function
       const { data, error } = await supabase.functions.invoke("send-email", {

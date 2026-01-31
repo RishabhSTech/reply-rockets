@@ -148,13 +148,21 @@ export function SequenceBuilder({ campaignId, initialSequence }: SequenceBuilder
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 <div className="space-y-2">
-                                    <Label className="text-xs text-muted-foreground">Instructions for AI (Prompt Config)</Label>
+                                    <div className="flex items-start justify-between">
+                                        <div>
+                                            <Label className="text-xs font-semibold text-muted-foreground">AI Prompt Configuration</Label>
+                                            <p className="text-xs text-muted-foreground mt-1">This prompt guides the AI to create personalized icebreakers using each lead's persona data</p>
+                                        </div>
+                                    </div>
                                     <Textarea
                                         value={step.config.prompt}
                                         onChange={(e) => updateStep(step.id, { prompt: e.target.value })}
-                                        placeholder="e.g. Write a friendly follow-up asking if they saw the previous email..."
-                                        className="min-h-[80px]"
+                                        placeholder="e.g. Write a friendly follow-up referencing their pain point about scaling. Mention how you understand their challenge..."
+                                        className="min-h-[100px] text-sm"
                                     />
+                                    <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded p-3 text-xs text-blue-900 dark:text-blue-100">
+                                        <strong>💡 Tip:</strong> Reference pain points here. The AI will combine this prompt with each lead's persona (pain points, priorities, icebreaker hooks) to create truly personalized emails.
+                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
