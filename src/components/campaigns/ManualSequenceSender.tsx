@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Send, Zap, AlertCircle, CheckCircle } from "lucide-react";
+import { Send, Zap, AlertCircle, CheckCircle, Copy, ChevronRight } from "lucide-react";
 
 interface Campaign {
   id: string;
@@ -100,6 +100,34 @@ export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
 
   // Load step details when selected
   const selectedStep = sequenceSteps.find(s => s.id === selectedStepId);
+  const selectedLead = leads.find(l => l.id === selectedLeadId);
+  const currentLeadIndex = leads.findIndex(l => l.id === selectedLeadId);
+  const nextLead = currentLeadIndex >= 0 && currentLeadIndex < leads.length - 1 ? leads[currentLeadIndex + 1] : null;
+
+  const handleCopyLeadData = () => {
+    if (!selectedLead) return;
+    
+    const leadData = `${selectedLead.email}`;
+    navigator.clipboard.writeText(leadData).then(() => {
+      toast({
+        title: "Copied",
+        description: `${selectedLead.email} copied to clipboard`,
+      });
+    }).catch(() => {
+      toast({
+        title: "Copy failed",
+        description: "Failed to copy to clipboard",
+        variant: "destructive",
+      });
+    });
+  };
+
+  const handleNextLead = () => {
+    if (nextLead) {
+      setSelectedLeadId(nextLead.id);
+      // Keep the same sequence step selected
+    }
+  };
 
   const handleSendSequence = async () => {
     if (!selectedLeadId || !selectedStepId) {
@@ -256,7 +284,14 @@ export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
           
           {/* Step 1: Select Lead */}
           <div className="space-y-2">
-            <Label htmlFor="lead">Lead</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="lead">Lead</Label>
+              {selectedLeadId && (
+                <span className="text-xs text-muted-foreground">
+                  {currentLeadIndex + 1} of {leads.length}
+                </span>
+              )}
+            </div>
             <Select value={selectedLeadId} onValueChange={setSelectedLeadId}>
               <SelectTrigger id="lead">
                 <SelectValue placeholder="Select a lead..." />
@@ -331,17 +366,39 @@ export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
             </div>
           )}
 
-          {/* Action Button */}
+          {/* Action Buttons */}
           {selectedLeadId && selectedStepId && (
-            <Button
-              onClick={handleSendSequence}
-              disabled={isSending}
-              className="w-full"
-              size="lg"
-            >
-              <Send className="w-4 h-4 mr-2" />
-              {isSending ? "Sending..." : "Send Sequence Step"}
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                onClick={handleSendSequence}
+                disabled={isSending}
+                className="flex-1"
+                size="lg"
+              >
+                <Send className="w-4 h-4 mr-2" />
+                {isSending ? "Sending..." : "Send Sequence Step"}
+              </Button>
+              
+              <Button
+                onClick={handleCopyLeadData}
+                variant="outline"
+                size="lg"
+                title="Copy lead email to clipboard"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+
+              {nextLead && (
+                <Button
+                  onClick={handleNextLead}
+                  variant="outline"
+                  size="lg"
+                  title={`Move to next lead: ${nextLead.name}`}
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           )}
         </CardContent>
       </Card>

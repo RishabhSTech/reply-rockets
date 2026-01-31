@@ -14,6 +14,7 @@ import { CampaignLeads } from "@/components/campaigns/CampaignLeads";
 import { CampaignSettings } from "@/components/campaigns/CampaignSettings";
 import { CampaignInbox } from "@/components/campaigns/CampaignInbox";
 import { ManualSequenceSender } from "@/components/campaigns/ManualSequenceSender";
+import { CampaignActivity } from "@/components/campaigns/CampaignActivity";
 
 const CampaignDetailsPage = () => {
     const { id } = useParams<{ id: string }>();
@@ -109,6 +110,12 @@ const CampaignDetailsPage = () => {
                                 >
                                     Inbox
                                 </TabsTrigger>
+                                <TabsTrigger
+                                    value="activity"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+                                >
+                                    Activity
+                                </TabsTrigger>
                             </TabsList>
 
                             <div className="mt-6">
@@ -129,6 +136,9 @@ const CampaignDetailsPage = () => {
                                 </TabsContent>
                                 <TabsContent value="inbox">
                                     <CampaignInbox campaignId={campaign.id} />
+                                </TabsContent>
+                                <TabsContent value="activity">
+                                    <CampaignActivity campaignId={campaign.id} />
                                 </TabsContent>
                                 <TabsContent value="settings">
                                     <CampaignSettings campaignId={campaign.id} />
