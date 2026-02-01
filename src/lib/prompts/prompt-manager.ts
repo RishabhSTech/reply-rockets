@@ -41,7 +41,8 @@ export interface GeneratedEmail {
  * with specific context. This approach minimizes redundancy.
  */
 export function buildSystemPrompt(companyInfo?: PromptContext['companyInfo']): string {
-    const { cmo_bot_context, cold_email_framework, cold_email_writer } = emailTemplates.templates;
+    const { cmo_bot_context, cold_email_framework } = emailTemplates;
+    const { cold_email_writer } = emailTemplates.templates;
 
     // Core principles from CMO bot context
     const corePrinciples = `You are an elite ${cmo_bot_context.role}.
@@ -59,13 +60,13 @@ AVOID ALL:
 ${cmo_bot_context.forbidden_language.map(f => `- ${f}`).join('\n')}
 
 EMAIL FRAMEWORK:
-${cold_email_framework.structure.map((s, i) => `${i + 1}. ${s}`).join('\n')}
+${cold_email_framework.mandatory_structure.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 
 SUBJECT LINE RULES:
 ${cold_email_framework.subject_line_rules.map(r => `- ${r}`).join('\n')}
 
 CTA APPROACH:
-${cold_email_framework.cta_styles.map(c => `- ${c}`).join('\n')}`;
+${cold_email_framework.cta_rules.map(c => `- ${c}`).join('\n')}`;
 
     // Add company context if available
     const companyContext = companyInfo?.companyName
@@ -90,7 +91,7 @@ OUTPUT FORMAT (JSON only):
  * Builds a concise user prompt with lead-specific context
  */
 export function buildUserPrompt(context: PromptContext): string {
-    const { tone_variations } = emailTemplates.templates;
+    const { tone_variations } = emailTemplates;
     const toneDesc = tone_variations[context.tone]?.description || 'professional';
 
     return `Write a ${context.tone} email (${toneDesc}) for:
@@ -119,8 +120,8 @@ Requirements: Max ${emailTemplates.templates.cold_email_writer.structure.body.ma
  * Get industry-specific context for enhanced personalization
  * This is optional and can be used for additional context
  */
-export function getIndustryContext(industry: keyof typeof emailTemplates.templates.industry_contexts) {
-    return emailTemplates.templates.industry_contexts[industry];
+export function getIndustryContext(industry: keyof typeof emailTemplates.industry_contexts) {
+    return emailTemplates.industry_contexts[industry];
 }
 
 /**
@@ -146,7 +147,7 @@ export function validateEmail(email: GeneratedEmail): {
     // Check for forbidden words
     const lowerBody = email.body.toLowerCase();
     const lowerSubject = email.subject.toLowerCase();
-    const foundForbidden = emailTemplates.templates.cmo_bot_context.forbidden_language.filter(
+    const foundForbidden = emailTemplates.cmo_bot_context.forbidden_language.filter(
         word => lowerBody.includes(word) || lowerSubject.includes(word)
     );
 
@@ -169,7 +170,7 @@ export function validateEmail(email: GeneratedEmail): {
  * Get all available tone options with descriptions
  */
 export function getToneOptions() {
-    return Object.entries(emailTemplates.templates.tone_variations).map(([key, value]) => ({
+    return Object.entries(emailTemplates.tone_variations).map(([key, value]) => ({
         value: key as ToneType,
         label: key.charAt(0).toUpperCase() + key.slice(1),
         description: value.description,

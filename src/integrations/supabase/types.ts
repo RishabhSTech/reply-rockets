@@ -260,15 +260,29 @@ export type Database = {
       }
       leads: {
         Row: {
+          best_persona_to_contact: string | null
           campaign_id: string | null
+          company_description: string | null
           created_at: string
           email: string | null
+          email_1_body: string | null
+          email_1_subject: string | null
           founder_linkedin: string | null
+          hiring_reason: string | null
+          hiring_signal: string | null
+          icp_fit: string | null
+          icp_reasoning: string | null
           id: string
           name: string
+          ownership_pressure: string | null
           persona_generated_at: string | null
           persona_insights: Json | null
+          persona_motivation: string | null
+          persona_objection: string | null
+          persona_primary_pain: string | null
+          persona_priority: string | null
           position: string
+          recipient_concerns: string | null
           requirement: string
           status: string
           updated_at: string
@@ -276,15 +290,29 @@ export type Database = {
           website_url: string | null
         }
         Insert: {
+          best_persona_to_contact?: string | null
           campaign_id?: string | null
+          company_description?: string | null
           created_at?: string
           email?: string | null
+          email_1_body?: string | null
+          email_1_subject?: string | null
           founder_linkedin?: string | null
+          hiring_reason?: string | null
+          hiring_signal?: string | null
+          icp_fit?: string | null
+          icp_reasoning?: string | null
           id?: string
           name: string
+          ownership_pressure?: string | null
           persona_generated_at?: string | null
           persona_insights?: Json | null
+          persona_motivation?: string | null
+          persona_objection?: string | null
+          persona_primary_pain?: string | null
+          persona_priority?: string | null
           position: string
+          recipient_concerns?: string | null
           requirement: string
           status?: string
           updated_at?: string
@@ -292,15 +320,29 @@ export type Database = {
           website_url?: string | null
         }
         Update: {
+          best_persona_to_contact?: string | null
           campaign_id?: string | null
+          company_description?: string | null
           created_at?: string
           email?: string | null
+          email_1_body?: string | null
+          email_1_subject?: string | null
           founder_linkedin?: string | null
+          hiring_reason?: string | null
+          hiring_signal?: string | null
+          icp_fit?: string | null
+          icp_reasoning?: string | null
           id?: string
           name?: string
+          ownership_pressure?: string | null
           persona_generated_at?: string | null
           persona_insights?: Json | null
+          persona_motivation?: string | null
+          persona_objection?: string | null
+          persona_primary_pain?: string | null
+          persona_priority?: string | null
           position?: string
+          recipient_concerns?: string | null
           requirement?: string
           status?: string
           updated_at?: string

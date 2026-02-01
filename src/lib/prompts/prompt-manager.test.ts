@@ -13,10 +13,10 @@ describe("Prompt Manager", () => {
         it("should build a system prompt without company info", () => {
             const prompt = buildSystemPrompt();
 
-            expect(prompt).toContain("Chief Marketing Officer");
-            expect(prompt).toContain("WRITING RULES");
-            expect(prompt).toContain("FORBIDDEN");
-            expect(prompt).toContain("STRUCTURE");
+            expect(prompt).toContain("Elite AI SDR");
+            expect(prompt).toContain("WRITING PRINCIPLES");
+            expect(prompt).toContain("AVOID ALL");
+            expect(prompt).toContain("EMAIL FRAMEWORK");
             expect(prompt).toContain("OUTPUT FORMAT");
         });
 
@@ -40,16 +40,16 @@ describe("Prompt Manager", () => {
         it("should include forbidden words list", () => {
             const prompt = buildSystemPrompt();
 
+            expect(prompt).toContain("agency");
             expect(prompt).toContain("synergy");
-            expect(prompt).toContain("leverage");
-            expect(prompt).toContain("innovative");
+            expect(prompt).toContain("disruptive");
         });
 
-        it("should specify max word count and subject length", () => {
+        it("should specify subject line and cta rules", () => {
             const prompt = buildSystemPrompt();
 
-            expect(prompt).toContain("90 words");
-            expect(prompt).toContain("50 chars");
+            expect(prompt).toContain("SUBJECT LINE RULES");
+            expect(prompt).toContain("CTA APPROACH");
         });
     });
 
@@ -137,24 +137,24 @@ describe("Prompt Manager", () => {
             const context = getIndustryContext("saas");
 
             expect(context).toBeDefined();
-            expect(context.common_pains).toContain("Engineering bandwidth gaps");
-            expect(context.value_drivers).toContain("Maintain roadmap momentum");
+            expect(context.core_pains).toContain("Bandwidth gaps");
+            expect(context.signals_to_watch).toContain("Multiple engineering roles");
         });
 
         it("should return eCommerce industry context", () => {
             const context = getIndustryContext("ecommerce");
 
             expect(context).toBeDefined();
-            expect(context.common_pains).toContain("Site performance issues");
-            expect(context.value_drivers).toContain("Revenue protection");
+            expect(context.core_pains).toContain("Revenue-impacting delays");
+            expect(context.signals_to_watch).toContain("Conversion-focused roles");
         });
 
         it("should return marketing agency industry context", () => {
             const context = getIndustryContext("marketing_agency");
 
             expect(context).toBeDefined();
-            expect(context.common_pains).toContain("Missed timelines");
-            expect(context.value_drivers).toContain("Immediate execution support");
+            expect(context.core_pains).toContain("Client delivery strain");
+            expect(context.signals_to_watch).toContain("Many open delivery roles");
         });
     });
 
