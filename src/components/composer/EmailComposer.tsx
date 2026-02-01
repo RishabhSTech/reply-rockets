@@ -5,7 +5,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -15,6 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Sparkles, Copy, RefreshCw, Send, Wand2, Users, Loader2, Eye, EyeOff, AlertCircle } from "lucide-react";
 
 interface Lead {
@@ -507,11 +507,11 @@ export function EmailComposer({ className }: EmailComposerProps) {
                   Copy
                 </Button>
               </div>
-              <Textarea
-                id="body"
+              <RichTextEditor
                 value={body}
-                onChange={(e) => setBody(e.target.value)}
-                className="bg-secondary border-0 min-h-[180px] resize-none font-mono text-sm"
+                onChange={setBody}
+                placeholder="Write your email body here..."
+                className="min-h-[400px] bg-secondary border-0"
               />
             </div>
 

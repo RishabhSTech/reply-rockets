@@ -38,6 +38,28 @@ function setCachedSettings(userId: string, data: any) {
   settingsCache.set(userId, { data, timestamp: Date.now() });
 }
 
+/**
+ * Converts Markdown-style formatting to HTML
+ * Supports: **bold**, *italic*, bullets (•), and numbered lists
+ */
+function markdownToHtml(markdown: string): string {
+  let html = markdown;
+
+  // Convert **bold** to <strong>
+  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+  // Convert *italic* to <em>
+  html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+  // Convert bullet points • to list items
+  html = html.replace(/^•\s+(.+)$/gm, "<li style=\"margin-left: 20px;\">$1</li>");
+
+  // Convert numbered lists (1. 2. etc) to list items
+  html = html.replace(/^\d+\.\s+(.+)$/gm, "<li style=\"margin-left: 20px;\">$1</li>");
+
+  return html;
+}
+
 serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -203,9 +225,12 @@ serve(async (req: Request) => {
     // Apply click tracking to the email body
     const bodyWithTrackedLinks = wrapLinksWithTracking(emailBody, logEntry.id);
 
+    // Convert Markdown formatting to HTML (bold, italic, bullets, lists)
+    const formattedBody = markdownToHtml(bodyWithTrackedLinks);
+
     // Convert newlines to BR and wrap in proper HTML structure
     // Separate pixel in its own div to ensure it loads
-    const bodyWithBreaks = bodyWithTrackedLinks.replace(/\n/g, "<br />");
+    const bodyWithBreaks = formattedBody.replace(/\n/g, "<br />");
     const htmlBody = `<!DOCTYPE html>
 <html>
 <head><meta charset="UTF-8"></head>

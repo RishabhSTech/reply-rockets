@@ -11,10 +11,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { Send, Zap, AlertCircle, CheckCircle, Copy, ChevronRight } from "lucide-react";
 
 interface Campaign {
@@ -354,12 +354,11 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
 
               <div className="space-y-2">
                 <Label htmlFor="body">Email Body</Label>
-                <Textarea
-                  id="body"
-                  placeholder={selectedStep.config?.prompt || "Email body (optional - will use sequence prompt if empty)..."}
+                <RichTextEditor
                   value={customBody}
-                  onChange={(e) => setCustomBody(e.target.value)}
-                  className="min-h-[120px]"
+                  onChange={setCustomBody}
+                  placeholder={selectedStep.config?.prompt || "Email body (optional - will use sequence prompt if empty)..."}
+                  className="min-h-[300px]"
                 />
                 <p className="text-xs text-muted-foreground">
                   Leave empty to generate from step prompt: "{selectedStep.config?.prompt}"
