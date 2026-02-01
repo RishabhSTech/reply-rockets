@@ -61,7 +61,6 @@ export function RichTextEditor({
     const beforeText = value.substring(0, start);
     const afterText = value.substring(end);
 
-    // Add bullet point(s)
     const lines = selectedText.split("\n");
     const bulletedLines = lines
       .map((line) => (line.trim() ? `• ${line.trim()}` : line))
@@ -92,7 +91,6 @@ export function RichTextEditor({
     const beforeText = value.substring(0, start);
     const afterText = value.substring(end);
 
-    // Add numbered points
     const lines = selectedText.split("\n");
     const numberedLines = lines
       .map((line, index) => (line.trim() ? `${index + 1}. ${line.trim()}` : line))
@@ -218,10 +216,6 @@ export function RichTextEditor({
           className={`w-full px-3 py-2 border border-input rounded-md bg-background text-sm resize-none font-mono ${className}`}
         />
       )}
-
-      <p className="text-xs text-muted-foreground">
-        Type <code className="bg-muted px-1 rounded">**bold**</code> • <code className="bg-muted px-1 rounded">*italic*</code> • Click bullets/numbers or use toolbar
-      </p>
     </div>
   );
 }

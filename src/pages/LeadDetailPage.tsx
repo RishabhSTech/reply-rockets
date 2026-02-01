@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { Header } from "@/components/layout/Header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, RefreshCw, Mail, Linkedin, Globe, User, Briefcase } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Mail, Linkedin, Globe, User, Briefcase, ChevronLeft } from "lucide-react";
 
 interface Lead {
   id: string;
@@ -191,41 +193,58 @@ export function LeadDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin" />
+      <div className="flex h-screen bg-background">
+        <Sidebar currentPath="/leads" onNavigate={(path) => navigate(path)} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Lead Details" />
+          <main className="flex-1 flex items-center justify-center">
+            <Loader2 className="w-8 h-8 animate-spin" />
+          </main>
+        </div>
       </div>
     );
   }
 
   if (!lead) {
     return (
-      <div className="p-6">
-        <Button onClick={() => navigate(-1)} variant="ghost" className="mb-4">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Back
-        </Button>
-        <p>Lead not found</p>
+      <div className="flex h-screen bg-background">
+        <Sidebar currentPath="/leads" onNavigate={(path) => navigate(path)} />
+        <div className="flex-1 flex flex-col overflow-hidden">
+          <Header title="Lead Details" />
+          <main className="flex-1 overflow-y-auto bg-slate-50/50">
+            <div className="p-6">
+              <Button onClick={() => navigate(-1)} variant="ghost" className="mb-4">
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <p>Lead not found</p>
+            </div>
+          </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 max-w-4xl mx-auto">
-      {/* Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
-          <Button onClick={() => navigate(-1)} variant="ghost" size="icon">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold">{lead.name}</h1>
-            <div className="flex items-center gap-2 mt-2 text-muted-foreground">
-              <Briefcase className="w-4 h-4" />
-              <span>{lead.position}</span>
+    <div className="flex h-screen bg-background">
+      <Sidebar currentPath="/leads" onNavigate={(path) => navigate(path)} />
+      <div className="flex-1 flex flex-col overflow-hidden">
+        <Header title={lead.name} />
+        <main className="flex-1 overflow-y-auto bg-slate-50/50">
+          <div className="p-6 space-y-6 max-w-5xl mx-auto">
+            {/* Back Button and Title */}
+            <div className="flex items-start gap-4">
+              <Button onClick={() => navigate(-1)} variant="ghost" size="icon" className="mt-1">
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <div>
+                <h2 className="text-2xl font-bold">{lead.name}</h2>
+                <div className="flex items-center gap-3 mt-2 text-muted-foreground">
+                  <Briefcase className="w-4 h-4" />
+                  <span>{lead.position}</span>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </div>
 
       {/* Tabs */}
       <Tabs defaultValue="overview" className="w-full">
@@ -451,6 +470,9 @@ export function LeadDetailPage() {
           </Card>
         </TabsContent>
       </Tabs>
+          </div>
+        </main>
+      </div>
     </div>
   );
 }

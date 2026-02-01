@@ -20,6 +20,27 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
 
     useEffect(() => {
         loadStats();
+        
+        // Set up real-time subscription for email logs
+        const emailLogsSubscription = supabase
+            .channel(`campaign_stats_${campaign.id}`)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "email_logs",
+                    filter: `campaign_id=eq.${campaign.id}`,
+                },
+                () => {
+                    loadStats();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            emailLogsSubscription.unsubscribe();
+        };
     }, [campaign.id]);
 
     const loadStats = async () => {

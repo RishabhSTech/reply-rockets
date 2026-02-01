@@ -15,6 +15,7 @@ import { CampaignSettings } from "@/components/campaigns/CampaignSettings";
 import { CampaignInbox } from "@/components/campaigns/CampaignInbox";
 import { ManualSequenceSender } from "@/components/campaigns/ManualSequenceSender";
 import { CampaignActivity } from "@/components/campaigns/CampaignActivity";
+import { DraftEmails } from "@/components/campaigns/DraftEmails";
 
 const CampaignDetailsPage = () => {
     const { id } = useParams<{ id: string }>();
@@ -99,10 +100,10 @@ const CampaignDetailsPage = () => {
                                     Manual Send
                                 </TabsTrigger>
                                 <TabsTrigger
-                                    value="settings"
+                                    value="drafts"
                                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
                                 >
-                                    Settings
+                                    Drafts
                                 </TabsTrigger>
                                 <TabsTrigger
                                     value="inbox"
@@ -115,6 +116,12 @@ const CampaignDetailsPage = () => {
                                     className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
                                 >
                                     Activity
+                                </TabsTrigger>
+                                <TabsTrigger
+                                    value="settings"
+                                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-3"
+                                >
+                                    Settings
                                 </TabsTrigger>
                             </TabsList>
 
@@ -133,6 +140,9 @@ const CampaignDetailsPage = () => {
                                 </TabsContent>
                                 <TabsContent value="manual-send">
                                     <ManualSequenceSender campaignId={campaign.id} />
+                                </TabsContent>
+                                <TabsContent value="drafts">
+                                    <DraftEmails campaignId={campaign.id} />
                                 </TabsContent>
                                 <TabsContent value="inbox">
                                     <CampaignInbox campaignId={campaign.id} />

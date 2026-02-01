@@ -70,7 +70,8 @@ export function LeadsList() {
     }
   };
 
-  const handleCopyLeadData = (lead: Lead) => {
+  const handleCopyLeadData = (e: React.MouseEvent, lead: Lead) => {
+    e.stopPropagation();
     const leadData = `Name: ${lead.name}
 Position: ${lead.position}
 Linkedin: ${lead.founder_linkedin || "N/A"}
@@ -241,7 +242,7 @@ Requirement: ${lead.requirement}}`;
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  onClick={() => handleCopyLeadData(lead)}
+                  onClick={(e) => handleCopyLeadData(e, lead)}
                   title="Copy lead data"
                 >
                   <Copy className="h-4 w-4 text-muted-foreground" />

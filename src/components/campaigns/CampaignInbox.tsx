@@ -25,6 +25,7 @@ interface EmailThread {
     status: "unread" | "read";
     body: string;
     receivedAt: string;
+    isSent?: boolean;
 }
 
 export function CampaignInbox({ campaignId }: CampaignInboxProps) {
@@ -40,7 +41,7 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
     const loadReplies = async () => {
         try {
             // Fetch email replies for this campaign's leads
-            const { data: replies, error } = await supabase
+            const { data: replies, error: repliesError } = await supabase
                 .from("email_replies")
                 .select(`
                     *,
@@ -49,10 +50,10 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                 `)
                 .order("received_at", { ascending: false });
 
-            if (error) throw error;
+            if (repliesError) throw repliesError;
 
-            // Filter replies for this campaign and format them
-            const campaignThreads = (replies || [])
+            // Filter replies for this campaign
+            const campaignReplies = (replies || [])
                 .filter(r => r.email_logs?.campaign_id === campaignId)
                 .map(r => ({
                     id: r.id,
@@ -67,7 +68,44 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                     receivedAt: r.received_at,
                 }));
 
-            setThreads(campaignThreads);
+            // Also fetch sent emails for this campaign
+            const { data: sentEmails, error: emailsError } = await supabase
+                .from("email_logs")
+                .select(`
+                    id,
+                    subject,
+                    body,
+                    to_email,
+                    sent_at,
+                    leads (name)
+                `)
+                .eq("campaign_id", campaignId)
+                .eq("status", "sent")
+                .order("sent_at", { ascending: false });
+
+            if (emailsError) throw emailsError;
+
+            // Map sent emails to thread format
+            const sentEmailThreads = (sentEmails || []).map(e => ({
+                id: `sent_${e.id}`,
+                fromEmail: e.to_email,
+                fromName: e.leads?.name || "Unknown",
+                leadName: e.leads?.name || "Unknown",
+                subject: e.subject,
+                preview: e.body.substring(0, 50) + (e.body.length > 50 ? "..." : ""),
+                date: new Date(e.sent_at).toLocaleDateString(),
+                status: "read" as const,
+                body: e.body,
+                receivedAt: e.sent_at,
+                isSent: true,
+            }));
+
+            // Combine and sort by date
+            const allThreads = [...campaignReplies, ...sentEmailThreads].sort(
+                (a, b) => new Date(b.receivedAt).getTime() - new Date(a.receivedAt).getTime()
+            );
+
+            setThreads(allThreads);
         } catch (error) {
             console.error("Error loading replies:", error);
             toast.error("Failed to load replies");
