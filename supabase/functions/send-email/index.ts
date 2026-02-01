@@ -45,17 +45,17 @@ function setCachedSettings(userId: string, data: any) {
 function markdownToHtml(markdown: string): string {
   let html = markdown;
 
-  // Convert **bold** to <strong>
-  html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  // Convert **bold** to <strong> (handle multiple words properly)
+  html = html.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
 
-  // Convert *italic* to <em>
+  // Convert *italic* to <em> (handle single words)
   html = html.replace(/\*([^*]+)\*/g, "<em>$1</em>");
 
-  // Convert bullet points • to list items
-  html = html.replace(/^•\s+(.+)$/gm, "<li style=\"margin-left: 20px;\">$1</li>");
+  // Convert bullet points • to list items with styling
+  html = html.replace(/^•\s+(.+)$/gm, "<li style=\"margin-left: 20px; list-style: disc; margin-bottom: 8px;\">$1</li>");
 
-  // Convert numbered lists (1. 2. etc) to list items
-  html = html.replace(/^\d+\.\s+(.+)$/gm, "<li style=\"margin-left: 20px;\">$1</li>");
+  // Convert numbered lists (1. 2. etc) to list items with styling
+  html = html.replace(/^\d+\.\s+(.+)$/gm, "<li style=\"margin-left: 20px; list-style: decimal; margin-bottom: 8px;\">$1</li>");
 
   return html;
 }
