@@ -52,6 +52,14 @@ interface Lead {
 export function ManualSequenceSender({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
   
+  // DEFENSIVE: Ensure campaignId is defined
+  if (!campaignId) {
+    console.error("❌ CRITICAL: ManualSequenceSender received undefined campaignId!");
+    return <div className="text-red-600">Error: Campaign ID is missing</div>;
+  }
+  
+  console.log("✅ ManualSequenceSender initialized with campaignId:", campaignId);
+  
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [leads, setLeads] = useState<Lead[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -284,6 +292,12 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
       }
 
       // Send email via edge function
+      if (!campaignId || typeof campaignId !== 'string') {
+        console.error("❌ CRITICAL: campaignId is invalid:", campaignId);
+        throw new Error("Campaign ID is missing or invalid");
+      }
+      
+      console.log("📧 Sending email for manual sequence with campaignId:", campaignId);
       const { data, error } = await supabase.functions.invoke("send-email", {
         body: {
           leadId: selectedLead.id,
@@ -296,7 +310,11 @@ Requirement: ${selectedLead.requirement || "N/A"}`;
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Error from send-email function:", error);
+        throw error;
+      }
+      console.log("✅ Email sent successfully via send-email function");
 
       // Add to send history
       setSendHistory([

@@ -90,7 +90,10 @@ serve(async (req: Request) => {
     }
 
     const userId = claimsData.claims.sub;
-    const { leadId, toEmail, subject, body, campaignId }: SendEmailRequest = await req.json();
+    let { leadId, toEmail, subject, body, campaignId }: SendEmailRequest = await req.json();
+    
+    console.log("📥 send-email received request with campaignId:", campaignId, "leadId:", leadId);
+    console.log("🔍 campaignId is:", campaignId ? `"${campaignId}"` : "UNDEFINED/NULL");
 
     // Get SMTP settings (with cache)
     let smtpSettings = getCachedSettings(`smtp_${userId}`);
@@ -183,6 +186,7 @@ serve(async (req: Request) => {
     console.log(`   - Body length: ${emailBody.length} chars`);
 
     // 1. Insert log first with 'pending' status to get the ID
+    console.log("📝 About to insert email_log with campaign_id:", campaignId);
     const { data: logEntry, error: logError } = await supabase.from("email_logs").insert({
       user_id: userId,
       lead_id: leadId,
@@ -195,8 +199,15 @@ serve(async (req: Request) => {
     }).select().single();
 
     if (logError || !logEntry) {
-      console.error("Failed to create log entry:", logError);
+      console.error("❌ Failed to create log entry:", logError);
       throw new Error("Failed to initialize email tracking");
+    }
+    
+    console.log("✅ Email log created with id:", logEntry.id, "and campaign_id:", logEntry.campaign_id);
+    
+    // VERIFY: Make sure campaign_id was actually saved
+    if (campaignId && !logEntry.campaign_id) {
+      console.error("❌ WARNING: campaignId was passed as", campaignId, "but email_log has campaign_id as", logEntry.campaign_id);
     }
 
     // 2. Append tracking pixel and wrap links for click tracking

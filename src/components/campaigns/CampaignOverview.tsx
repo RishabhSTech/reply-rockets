@@ -22,6 +22,7 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
         loadStats();
         
         // Set up real-time subscription for email logs
+        console.log("📡 Setting up real-time subscription for campaign:", campaign.id);
         const emailLogsSubscription = supabase
             .channel(`campaign_stats_${campaign.id}`)
             .on(
@@ -32,11 +33,14 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
                     table: "email_logs",
                     filter: `campaign_id=eq.${campaign.id}`,
                 },
-                () => {
+                (payload) => {
+                    console.log("🔔 Real-time update received for campaign stats:", payload);
                     loadStats();
                 }
             )
-            .subscribe();
+            .subscribe((status) => {
+                console.log("📡 Subscription status:", status);
+            });
 
         return () => {
             emailLogsSubscription.unsubscribe();
@@ -62,6 +66,11 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
             const totalLeads = leadsData?.length || 0;
             const emailsSent = emailsData?.filter(e => e.status === "sent").length || 0;
             const emailsOpened = emailsData?.filter(e => e.opened_at).length || 0;
+
+            console.log("📊 Campaign stats loaded for", campaign.id);
+            console.log("   - Total emails in logs:", emailsData?.length || 0);
+            console.log("   - Emails with status 'sent':", emailsSent);
+            console.log("   - Emails with campaign_id set:", emailsData?.filter(e => e.campaign_id).length || 0);
 
             // Get replies for this campaign's leads via email_logs
             const campaignEmailIds = emailsData?.map(e => e.id) || [];
