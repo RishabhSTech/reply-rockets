@@ -26,6 +26,8 @@ interface EmailThread {
     body: string;
     receivedAt: string;
     isSent?: boolean;
+    isReply?: boolean;
+    wasOpened?: boolean;
 }
 
 export function CampaignInbox({ campaignId }: CampaignInboxProps) {
@@ -66,9 +68,11 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                     status: (r.is_read ? "read" : "unread") as "read" | "unread",
                     body: r.body,
                     receivedAt: r.received_at,
+                    isReply: true,
                 }));
 
-            // Also fetch sent emails for this campaign
+            // FIXED: Fetch ALL sent emails for this campaign (not just status="sent")
+            // Emails can have status: pending, sent, opened, failed - we want all except failed
             const { data: sentEmails, error: emailsError } = await supabase
                 .from("email_logs")
                 .select(`
@@ -77,13 +81,18 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                     body,
                     to_email,
                     sent_at,
+                    status,
+                    opened_at,
                     leads (name)
                 `)
                 .eq("campaign_id", campaignId)
-                .eq("status", "sent")
+                .not("status", "eq", "failed")
+                .not("sent_at", "is", null)
                 .order("sent_at", { ascending: false });
 
             if (emailsError) throw emailsError;
+
+            console.log(`📧 Inbox: Found ${sentEmails?.length || 0} sent emails for campaign`);
 
             // Map sent emails to thread format
             const sentEmailThreads = (sentEmails || []).map(e => ({
@@ -91,13 +100,14 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                 fromEmail: e.to_email,
                 fromName: e.leads?.name || "Unknown",
                 leadName: e.leads?.name || "Unknown",
-                subject: e.subject,
-                preview: e.body.substring(0, 50) + (e.body.length > 50 ? "..." : ""),
-                date: new Date(e.sent_at).toLocaleDateString(),
+                subject: e.subject || "(No Subject)",
+                preview: e.body ? (e.body.substring(0, 50) + (e.body.length > 50 ? "..." : "")) : "",
+                date: e.sent_at ? new Date(e.sent_at).toLocaleDateString() : "",
                 status: "read" as const,
-                body: e.body,
-                receivedAt: e.sent_at,
+                body: e.body || "",
+                receivedAt: e.sent_at || new Date().toISOString(),
                 isSent: true,
+                wasOpened: !!e.opened_at,
             }));
 
             // Combine and sort by date
@@ -140,8 +150,8 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
     return (
         <div className="grid grid-cols-12 gap-0 h-[600px] border rounded-lg overflow-hidden bg-background">
             {/* Thread List */}
-            <div className="col-span-4 border-r flex flex-col">
-                <div className="p-4 border-b space-y-3">
+            <div className="col-span-4 border-r flex flex-col h-full overflow-hidden">
+                <div className="p-4 border-b space-y-3 flex-shrink-0">
                     <h3 className="font-semibold flex items-center gap-2">
                         <Mail className="w-4 h-4" /> Inbox
                     </h3>
@@ -150,7 +160,7 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                         <Input placeholder="Search replies..." className="pl-9" />
                     </div>
                 </div>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto min-h-0">
                     {loading ? (
                         <div className="p-4 text-center text-muted-foreground">
                             <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
@@ -171,7 +181,17 @@ export function CampaignInbox({ campaignId }: CampaignInboxProps) {
                                     <span className={`text-sm ${thread.status === 'unread' ? 'font-bold' : 'font-medium'}`}>
                                         {thread.leadName}
                                     </span>
-                                    <span className="text-xs text-muted-foreground">{thread.date}</span>
+                                    <div className="flex items-center gap-2">
+                                        {thread.isSent && (
+                                            <Badge variant={thread.wasOpened ? "default" : "outline"} className="text-[10px] px-1.5 py-0">
+                                                {thread.wasOpened ? "Opened" : "Sent"}
+                                            </Badge>
+                                        )}
+                                        {thread.isReply && (
+                                            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Reply</Badge>
+                                        )}
+                                        <span className="text-xs text-muted-foreground">{thread.date}</span>
+                                    </div>
                                 </div>
                                 <div className="text-xs text-muted-foreground mb-1">{thread.fromEmail}</div>
                                 <div className="text-xs font-medium truncate mb-1">{thread.subject}</div>

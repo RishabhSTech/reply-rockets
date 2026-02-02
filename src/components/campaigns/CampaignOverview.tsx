@@ -64,13 +64,17 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
             if (leadsError || emailsError) throw new Error("Failed to load stats");
 
             const totalLeads = leadsData?.length || 0;
-            const emailsSent = emailsData?.filter(e => e.status === "sent").length || 0;
+            
+            // FIXED: Count emails that have been actually sent (have sent_at timestamp)
+            // regardless of current status (pending, sent, opened, failed)
+            // An email is "sent" if it has a sent_at timestamp and status is not "failed"
+            const emailsSent = emailsData?.filter(e => e.sent_at && e.status !== "failed").length || 0;
             const emailsOpened = emailsData?.filter(e => e.opened_at).length || 0;
 
             console.log("📊 Campaign stats loaded for", campaign.id);
             console.log("   - Total emails in logs:", emailsData?.length || 0);
-            console.log("   - Emails with status 'sent':", emailsSent);
-            console.log("   - Emails with campaign_id set:", emailsData?.filter(e => e.campaign_id).length || 0);
+            console.log("   - Emails actually sent (has sent_at, not failed):", emailsSent);
+            console.log("   - Emails opened:", emailsOpened);
 
             // Get replies for this campaign's leads via email_logs
             const campaignEmailIds = emailsData?.map(e => e.id) || [];

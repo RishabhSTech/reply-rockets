@@ -92,6 +92,44 @@ export type Database = {
         }
         Relationships: []
       }
+      draft_emails: {
+        Row: {
+          body: string
+          campaign_id: string
+          created_at: string | null
+          id: string
+          subject: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          body: string
+          campaign_id: string
+          created_at?: string | null
+          id?: string
+          subject: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string
+          campaign_id?: string
+          created_at?: string | null
+          id?: string
+          subject?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "draft_emails_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_logs: {
         Row: {
           body: string
