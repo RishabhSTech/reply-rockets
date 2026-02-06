@@ -14,6 +14,7 @@ import {
 } from '../prompts/prompt-manager';
 import {
     callAIProvider,
+    getUserSelectedProvider,
     type AIProvider,
     type AIMessage,
 } from './ai-provider';
@@ -43,13 +44,17 @@ export interface EmailGenerationResult {
  * 
  * This is the main entry point for email generation.
  * It handles prompt building, AI calling, and validation.
+ * Uses user's selected AI provider from settings.
  */
 export async function generateEmail(
     context: PromptContext,
     options: EmailGenerationOptions = {}
 ): Promise<EmailGenerationResult> {
+    // Get user's selected provider (defaults to 'lovable' if not set)
+    const { provider: selectedProvider } = getUserSelectedProvider();
+    
     const {
-        provider = 'lovable', // Default to lovable (already configured)
+        provider = selectedProvider, // Use user's selected provider, or override with options
         temperature = 0.7,
         validateOutput = true,
     } = options;

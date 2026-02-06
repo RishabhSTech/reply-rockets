@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { EmailHistory } from "@/components/leads/EmailHistory";
 import { ArrowLeft, Loader2, RefreshCw, Mail, Linkedin, Globe, User, Briefcase, ChevronLeft } from "lucide-react";
 
 interface Lead {
@@ -250,6 +251,7 @@ export function LeadDetailPage() {
       <Tabs defaultValue="overview" className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="history">Email History</TabsTrigger>
           <TabsTrigger value="persona">Persona</TabsTrigger>
           <TabsTrigger value="email-preview">Email Preview</TabsTrigger>
         </TabsList>
@@ -312,6 +314,11 @@ export function LeadDetailPage() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Email History Tab */}
+        <TabsContent value="history" className="space-y-4">
+          {lead && <EmailHistory leadId={lead.id} />}
         </TabsContent>
 
         {/* Persona Tab */}

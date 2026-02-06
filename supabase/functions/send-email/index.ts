@@ -14,6 +14,7 @@ interface SendEmailRequest {
   subject?: string;
   body?: string;
   campaignId?: string;
+  emailType?: string; // 'intro', 'follow_up_1', 'follow_up_2', etc.
 }
 
 interface Lead {
@@ -90,9 +91,9 @@ serve(async (req: Request) => {
     }
 
     const userId = claimsData.claims.sub;
-    let { leadId, toEmail, subject, body, campaignId }: SendEmailRequest = await req.json();
+    let { leadId, toEmail, subject, body, campaignId, emailType = "intro" }: SendEmailRequest = await req.json();
     
-    console.log("📥 send-email received request with campaignId:", campaignId, "leadId:", leadId);
+    console.log("📥 send-email received request with campaignId:", campaignId, "leadId:", leadId, "emailType:", emailType);
     console.log("🔍 campaignId is:", campaignId ? `"${campaignId}"` : "UNDEFINED/NULL");
 
     // Get SMTP settings (with cache)
@@ -186,7 +187,7 @@ serve(async (req: Request) => {
     console.log(`   - Body length: ${emailBody.length} chars`);
 
     // 1. Insert log first with 'pending' status to get the ID
-    console.log("📝 About to insert email_log with campaign_id:", campaignId);
+    console.log("📝 About to insert email_log with campaign_id:", campaignId, "and email_type:", emailType);
     const { data: logEntry, error: logError } = await supabase.from("email_logs").insert({
       user_id: userId,
       lead_id: leadId,
@@ -194,6 +195,7 @@ serve(async (req: Request) => {
       to_email: toEmail,
       subject: emailSubject,
       body: emailBody, // We store original body without pixel
+      email_type: emailType, // Track the email type (intro, follow_up_1, etc)
       status: "pending",
       sent_at: new Date().toISOString(),
     }).select().single();
@@ -290,12 +292,34 @@ serve(async (req: Request) => {
         status: "sent"
       }).eq("id", logEntry.id);
 
-      // Update lead status
+      // 4. Update lead status and follow-up count based on email type
       if (lead) {
-        await supabase
-          .from("leads")
-          .update({ status: "Intro Sent" })
-          .eq("id", leadId);
+        if (emailType === "intro") {
+          // First email - mark as intro_sent
+          await supabase
+            .from("leads")
+            .update({ 
+              status: "intro_sent",
+              intro_sent_at: new Date().toISOString(),
+              last_email_sent_at: new Date().toISOString(),
+              campaign_id: campaignId || lead.campaign_id,
+            })
+            .eq("id", leadId);
+        } else if (emailType.startsWith("follow_up_")) {
+          // Extract follow-up number from email type (e.g., 'follow_up_1' -> 1)
+          const followUpMatch = emailType.match(/follow_up_(\d+)/);
+          if (followUpMatch) {
+            const followUpNum = parseInt(followUpMatch[1]);
+            await supabase
+              .from("leads")
+              .update({ 
+                status: emailType, // e.g., 'follow_up_1', 'follow_up_2'
+                follow_up_count: followUpNum,
+                last_email_sent_at: new Date().toISOString(),
+              })
+              .eq("id", leadId);
+          }
+        }
       }
     } catch (sendError) {
       // Update log to 'failed'

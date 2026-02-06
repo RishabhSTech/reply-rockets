@@ -38,6 +38,7 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
   const [formData, setFormData] = useState({ subject: "", body: "" });
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
   const [isSending, setIsSending] = useState(false);
+  const [emailType, setEmailType] = useState<string>("intro"); // Track email type for this draft
 
   useEffect(() => {
     loadDrafts();
@@ -209,6 +210,7 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
             subject: draft.subject,
             body: draft.body,
             campaignId: campaignId,
+            emailType: emailType, // Include email type for status tracking
           },
         });
 
@@ -223,6 +225,7 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
       setSelectedLeadIds([]);
       setSendDialogOpen(false);
       setDraftToSend(null);
+      setEmailType("intro"); // Reset email type
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to send draft", variant: "destructive" });
     } finally {
@@ -371,6 +374,25 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
                     <p className="text-xs text-muted-foreground">Preview</p>
                     <p className="text-sm line-clamp-3">{draftToSend.body}</p>
                   </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="email-type">Email Type</Label>
+                  <Select value={emailType} onValueChange={setEmailType}>
+                    <SelectTrigger id="email-type">
+                      <SelectValue placeholder="Select email type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="intro">Intro Email</SelectItem>
+                      <SelectItem value="follow_up_1">Follow-up #1</SelectItem>
+                      <SelectItem value="follow_up_2">Follow-up #2</SelectItem>
+                      <SelectItem value="follow_up_3">Follow-up #3</SelectItem>
+                      <SelectItem value="follow_up_4">Follow-up #4+</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    This helps track email sequences and lead engagement patterns
+                  </p>
                 </div>
 
                 <div className="space-y-2">
