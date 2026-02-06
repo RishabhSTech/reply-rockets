@@ -32,6 +32,8 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [isOpen, setIsOpen] = useState(false);
+  const [sendDialogOpen, setSendDialogOpen] = useState(false);
+  const [draftToSend, setDraftToSend] = useState<DraftEmail | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState({ subject: "", body: "" });
   const [selectedLeadIds, setSelectedLeadIds] = useState<string[]>([]);
@@ -219,12 +221,19 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
       });
 
       setSelectedLeadIds([]);
-      setIsOpen(false);
+      setSendDialogOpen(false);
+      setDraftToSend(null);
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Failed to send draft", variant: "destructive" });
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleSendExistingDraft = (draft: DraftEmail) => {
+    setDraftToSend(draft);
+    setSelectedLeadIds([]);
+    setSendDialogOpen(true);
   };
 
   if (loading) {
@@ -345,6 +354,94 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
             </div>
           </DialogContent>
         </Dialog>
+
+        <Dialog open={sendDialogOpen} onOpenChange={setSendDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-96 overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Send Draft Email</DialogTitle>
+            </DialogHeader>
+            {draftToSend && (
+              <div className="space-y-4">
+                <div className="bg-muted p-4 rounded-lg space-y-2">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Subject</p>
+                    <p className="font-semibold">{draftToSend.subject}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-muted-foreground">Preview</p>
+                    <p className="text-sm line-clamp-3">{draftToSend.body}</p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Send to Leads</Label>
+                  <Select
+                    value={selectedLeadIds[0] || ""}
+                    onValueChange={(value) => {
+                      if (value === "all") {
+                        setSelectedLeadIds(leads.map(l => l.id));
+                      } else if (!selectedLeadIds.includes(value)) {
+                        setSelectedLeadIds([...selectedLeadIds, value]);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select leads to send to..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Leads ({leads.length})</SelectItem>
+                      {leads.map(lead => (
+                        <SelectItem key={lead.id} value={lead.id}>
+                          {lead.name} ({lead.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedLeadIds.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {selectedLeadIds.map(id => {
+                        const lead = leads.find(l => l.id === id);
+                        return (
+                          <Badge key={id} variant="secondary">
+                            {lead?.name}
+                            <button
+                              onClick={() => setSelectedLeadIds(selectedLeadIds.filter(lid => lid !== id))}
+                              className="ml-1 text-xs"
+                            >
+                              ✕
+                            </button>
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => handleSendDraft(draftToSend)}
+                    disabled={selectedLeadIds.length === 0 || isSending}
+                    className="flex-1 bg-green-600 hover:bg-green-700"
+                  >
+                    <Send className="w-4 h-4 mr-1" />
+                    {isSending ? "Sending..." : "Send Now"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSendDialogOpen(false);
+                      setDraftToSend(null);
+                      setSelectedLeadIds([]);
+                    }}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
 
       {drafts.length === 0 ? (
@@ -367,6 +464,15 @@ export function DraftEmails({ campaignId }: { campaignId: string }) {
                     </p>
                   </div>
                   <div className="flex gap-2 ml-4">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleSendExistingDraft(draft)}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      <Send className="w-4 h-4 mr-1" />
+                      Send
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

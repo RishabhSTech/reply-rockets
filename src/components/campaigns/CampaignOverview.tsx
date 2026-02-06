@@ -15,6 +15,7 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
         emailsSent: 0,
         openRate: 0,
         replyRate: 0,
+        totalOpens: 0, // Track total opens for multi-open scenario
     });
     const [loading, setLoading] = useState(true);
 
@@ -88,7 +89,10 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
                 replyCount = repliesData?.length || 0;
             }
 
-            const openRate = emailsSent > 0 ? Math.round((emailsOpened / emailsSent) * 100) : 0;
+            // Fix: Multiple opens per email are tracked (good!), but cap display at 100%
+            // Show "total opens" in description if > emails sent
+            const totalOpens = emailsOpened;
+            const openRate = emailsSent > 0 ? Math.min(Math.round((emailsOpened / emailsSent) * 100), 100) : 0;
             const replyRate = emailsSent > 0 ? Math.round((replyCount / emailsSent) * 100) : 0;
 
             setStats({
@@ -96,7 +100,8 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
                 emailsSent,
                 openRate,
                 replyRate,
-            });
+                totalOpens, // Add for clarity in display
+            } as any);
         } catch (error) {
             console.error("Error loading stats:", error);
         } finally {
@@ -124,7 +129,10 @@ export function CampaignOverview({ campaign }: CampaignOverviewProps) {
             value: `${stats.openRate}%`,
             icon: MousePointerClick,
             change: "+0%",
-            desc: "of sent emails",
+            // Show total opens if multiple opens detected
+            desc: stats.totalOpens > stats.emailsSent 
+                ? `${stats.totalOpens} total opens` 
+                : "of sent emails",
         },
         {
             title: "Reply Rate",
