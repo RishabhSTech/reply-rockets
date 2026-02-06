@@ -70,18 +70,75 @@ const emailTemplates = {
 
 /**
  * Build optimized system prompt with research-based personalization
+ * 🚨 CRITICAL: campaignContext (company email prompt) is PRIMARY instruction source
+ * If campaign context provided → use as PRIMARY, then add persona/research as supplements
+ * If no campaign context → fall back to Elite SDR defaults + context_json
  */
 function buildSystemPrompt(companyInfo?: GenerateEmailRequest['companyInfo'], contextJson?: any, campaignContext?: any, leadPersona?: GenerateEmailRequest['leadPersona']): string {
-  // If rich context_json is provided (from the new settings), use that as the primary source of truth
-  /*
-   * LOGIC UPDATE:
-   * We now ALWAYS include the core "Elite AI SDR" persona to ensure high-quality baseline writing.
-   * If `contextJson` is provided, we append it as a strict framework that overrides specific rules where they conflict,
-   * but broadly we want the "intelligence" of the Elite SDR combined with the "knowledge" of the contextJson.
-   * 
-   * NEW: Lead persona data is now integrated to create pain-point-driven icebreakers and opening lines.
-   */
+  // 🚨 PRIORITY #1: If campaign context is provided, make it the PRIMARY instruction
+  if (campaignContext) {
+    const campaignPrompt = typeof campaignContext === 'string'
+      ? campaignContext
+      : JSON.stringify(campaignContext, null, 2);
 
+    // Build complete system prompt with campaign as primary driver
+    const systemPrompt = `${campaignPrompt}
+
+════════════════════════════════════════════════════════════════
+RESPONSE FORMAT - MUST BE VALID JSON:
+════════════════════════════════════════════════════════════════
+{
+  "subject": "subject line here",
+  "body": "email body text here"
+}
+
+${leadPersona ? `
+════════════════════════════════════════════════════════════════
+LEAD PERSONALIZATION CONTEXT (enhance your response with these):
+════════════════════════════════════════════════════════════════
+LEAD TITLE: ${leadPersona.title || 'Unknown'}
+${leadPersona.painPoints && leadPersona.painPoints.length > 0 ? `
+PAIN POINTS:
+${leadPersona.painPoints.map((p: string) => `• ${p}`).join('\n')}` : ''}
+${leadPersona.priorities && leadPersona.priorities.length > 0 ? `
+PRIORITIES:
+${leadPersona.priorities.map((p: string) => `• ${p}`).join('\n')}` : ''}
+
+Use these insights to make the email more specific and relevant to this person.
+` : ''}
+
+════════════════════════════════════════════════════════════════
+COMPANY INFO:
+════════════════════════════════════════════════════════════════
+Company: ${companyInfo?.companyName || 'Unknown'}
+`;
+
+    return systemPrompt;
+  }
+
+  // 🚨 PRIORITY #2: If context_json is provided (legacy/fallback), use it as primary
+  if (contextJson) {
+    const contextString = typeof contextJson === 'string'
+      ? contextJson
+      : JSON.stringify(contextJson, null, 2);
+
+    const personaSection = leadPersona ? `
+
+LEAD PERSONALIZATION:
+Role: ${leadPersona.title || 'Unknown'}
+${leadPersona.painPoints?.length ? `Pain Points: ${leadPersona.painPoints.join(', ')}` : ''}
+${leadPersona.priorities?.length ? `Priorities: ${leadPersona.priorities.join(', ')}` : ''}` : '';
+
+    return `${contextString}${personaSection}
+
+RESPONSE FORMAT (JSON ONLY):
+{
+  "subject": "subject line here",
+  "body": "email body (no greeting, no closing, no signature)"
+}`;
+  }
+
+  // 🚨 PRIORITY #3: Fall back to Elite SDR persona with any persona/company context
   const corePrinciples = `You are an elite AI SDR writing personalized cold emails based on genuine research and deep audience insights.
 
 ████████████████████████████████████████████████████████
@@ -147,22 +204,6 @@ FORBIDDEN - NEVER EVER USE:
 NOTE: No greeting, no closing, straight to pain point.
 `;
 
-  let deepContextInstructions = '';
-  if (contextJson) {
-    const contextString = typeof contextJson === 'string'
-      ? contextJson
-      : JSON.stringify(contextJson, null, 2);
-
-    deepContextInstructions = `\n\n=== CONTEXT & KNOWLEDGE BASE (STRICTLY ADHERE TO THIS FRAMEWORK) ===
-${contextString}
-
-CRITICAL INSTRUCTION:
-Combine the "Elite SDR" writing style with the specific framework defined above.
-If the framework above defines specific forbidden words, structure, or tone, PREFER THOSE over the general defaults.
-But maintain the "Elite SDR" quality (research-based, non-salesy, peer-to-peer).
-`;
-  }
-
   // Add lead persona insights for pain-point-driven personalization
   let personaInsights = '';
   if (leadPersona) {
@@ -182,19 +223,13 @@ PERSONA USAGE INSTRUCTIONS:
 `;
   }
 
-  // Only add legacy company context if NO deep context was provided
-  // Reduced to just Company Name as the detailed fields are no longer available/reliable per user request
-  const companyContextStr = (!deepContextInstructions && companyInfo?.companyName)
+  // Add company context if available
+  const companyContextStr = companyInfo?.companyName
     ? `\n\nYOUR COMPANY:
 - Name: ${companyInfo.companyName}`
     : '';
 
-  const customInstructions = campaignContext
-    ? `\n\nCAMPAIGN SPECIFIC INSTRUCTIONS (PRIORITIZE THESE):
-${typeof campaignContext === 'string' ? campaignContext : JSON.stringify(campaignContext, null, 2)}`
-    : '';
-
-  return `${corePrinciples}${personaInsights}${deepContextInstructions}${companyContextStr}${customInstructions}
+  return `${corePrinciples}${personaInsights}${companyContextStr}
 
 OUTPUT FORMAT (JSON ONLY):
 {

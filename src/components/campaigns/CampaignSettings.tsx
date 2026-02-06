@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import {
     Select,
     SelectContent,
@@ -13,7 +14,7 @@ import {
     SelectValue
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, Clock, Globe } from "lucide-react";
+import { Calendar, Clock, Globe, Code } from "lucide-react";
 
 interface CampaignSettingsProps {
     campaignId: string;
@@ -21,6 +22,9 @@ interface CampaignSettingsProps {
 
 export function CampaignSettings({ campaignId }: CampaignSettingsProps) {
     const [loading, setLoading] = useState(false);
+    const [jsonLoading, setJsonLoading] = useState(true);
+    const [promptJson, setPromptJson] = useState<string>("");
+    const [jsonError, setJsonError] = useState<string>("");
     const [settings, setSettings] = useState({
         dailyLimit: 50,
         startTime: "09:00",
@@ -37,30 +41,86 @@ export function CampaignSettings({ campaignId }: CampaignSettingsProps) {
         }
     });
 
+    // Load campaign prompt_json on mount
+    useEffect(() => {
+        const loadCampaignJson = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from("campaigns")
+                    .select("prompt_json")
+                    .eq("id", campaignId)
+                    .single();
+
+                if (error) throw error;
+
+                if (data?.prompt_json) {
+                    const jsonStr = typeof data.prompt_json === 'string'
+                        ? data.prompt_json
+                        : JSON.stringify(data.prompt_json, null, 2);
+                    setPromptJson(jsonStr);
+                }
+            } catch (error) {
+                console.error("Error loading campaign JSON:", error);
+                toast.error("Failed to load campaign settings");
+            } finally {
+                setJsonLoading(false);
+            }
+        };
+
+        loadCampaignJson();
+    }, [campaignId]);
+
     // Mock loading existing settings - in real app would fetch from DB
     // For now we just use state, maybe save to a 'settings' jsonb column in campaign
 
+    const handleJsonChange = (value: string) => {
+        setPromptJson(value);
+        // Real-time validation
+        if (value.trim()) {
+            try {
+                JSON.parse(value);
+                setJsonError("");
+            } catch (error: any) {
+                setJsonError(error.message);
+            }
+        } else {
+            setJsonError("");
+        }
+    };
+
     const handleSave = async () => {
+        // Validate JSON before saving
+        if (promptJson.trim()) {
+            try {
+                JSON.parse(promptJson);
+                setJsonError("");
+            } catch (error) {
+                setJsonError("Invalid JSON format");
+                toast.error("Invalid JSON format - please fix errors before saving");
+                return;
+            }
+        }
+
         setLoading(true);
         try {
-            // Assuming we're saving to a generic 'settings' jsonb column or specific cols
-            // For this demo, we'll pretend to save to 'daily_limit' and 'schedule' jsonb
+            // Parse the JSON to save it properly
+            let jsonToSave: any = null;
+            if (promptJson.trim()) {
+                jsonToSave = JSON.parse(promptJson);
+            }
 
-            /* 
             const { error } = await supabase
-              .from("campaigns")
-              .update({ 
-                   daily_limit: settings.dailyLimit,
-                   schedule: settings 
-              })
-              .eq("id", campaignId);
-            */
+                .from("campaigns")
+                .update({
+                    prompt_json: jsonToSave
+                })
+                .eq("id", campaignId);
 
-            // Simulating save
-            await new Promise(resolve => setTimeout(resolve, 800));
+            if (error) throw error;
 
             toast.success("Campaign settings saved");
         } catch (error) {
+            console.error("Error saving settings:", error);
             toast.error("Failed to save settings");
         } finally {
             setLoading(false);
@@ -190,8 +250,60 @@ export function CampaignSettings({ campaignId }: CampaignSettingsProps) {
                 </CardContent>
             </Card>
 
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Code className="w-5 h-5 text-primary" />
+                        Email Prompt Configuration
+                    </CardTitle>
+                    <CardDescription>
+                        Define your company voice and email generation rules in JSON format
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {jsonLoading ? (
+                        <div className="text-center py-8 text-muted-foreground">
+                            Loading campaign configuration...
+                        </div>
+                    ) : (
+                        <>
+                            <div className="space-y-2">
+                                <Label htmlFor="prompt-json">Campaign Prompt JSON</Label>
+                                <Textarea
+                                    id="prompt-json"
+                                    placeholder='Enter JSON configuration (e.g., {"voice": "professional", "tone": "friendly", ...})'
+                                    value={promptJson}
+                                    onChange={(e) => handleJsonChange(e.target.value)}
+                                    className={`font-mono text-sm min-h-48 ${jsonError ? "border-destructive" : ""}`}
+                                />
+                                {jsonError && (
+                                    <p className="text-sm text-destructive">
+                                        ⚠️ JSON Error: {jsonError}
+                                    </p>
+                                )}
+                                {!jsonError && promptJson.trim() && (
+                                    <p className="text-sm text-green-600">
+                                        ✓ Valid JSON
+                                    </p>
+                                )}
+                            </div>
+                            <div className="bg-muted/50 p-3 rounded-md text-sm">
+                                <p className="font-semibold mb-2">Example:</p>
+                                <pre className="whitespace-pre-wrap text-xs overflow-x-auto">{`{
+  "voice": "professional yet approachable",
+  "company_type": "B2B SaaS",
+  "main_message": "Help companies scale engineering teams",
+  "forbidden_phrases": ["offshore", "body shop"],
+  "tone_guidelines": "Peer-to-peer, solution-focused"
+}`}</pre>
+                            </div>
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+
             <div className="flex justify-end">
-                <Button size="lg" onClick={handleSave} disabled={loading}>
+                <Button size="lg" onClick={handleSave} disabled={loading || jsonError !== ""}>
                     {loading ? "Saving..." : "Save Configuration"}
                 </Button>
             </div>
