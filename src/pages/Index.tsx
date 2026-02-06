@@ -210,14 +210,21 @@ const Index = () => {
         />
         
         <main className="flex-1 overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-8 space-y-8 max-w-7xl">
+            {/* Header Section */}
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold text-foreground tracking-tight">Welcome back</h1>
+              <p className="text-muted-foreground">Here's what's happening with your outreach campaigns.</p>
+            </div>
+
+            {/* Stats Grid - 4 columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
               <StatCard
                 title="Emails Sent"
                 value={stats.emailsSent.toLocaleString()}
                 change={stats.emailsChange}
                 icon={Mail}
+                iconBg="bg-primary/10"
                 iconColor="text-primary"
                 delay={0}
               />
@@ -226,6 +233,7 @@ const Index = () => {
                 value={stats.activeLeads.toLocaleString()}
                 change={stats.leadsChange}
                 icon={Users}
+                iconBg="bg-accent/10"
                 iconColor="text-accent"
                 delay={50}
               />
@@ -234,6 +242,7 @@ const Index = () => {
                 value={stats.replyRate}
                 change={stats.replyChange}
                 icon={Reply}
+                iconBg="bg-success/10"
                 iconColor="text-success"
                 delay={100}
               />
@@ -242,61 +251,96 @@ const Index = () => {
                 value={stats.meetingsBooked.toString()}
                 change={stats.meetingsChange}
                 icon={Calendar}
+                iconBg="bg-warning/10"
                 iconColor="text-warning"
                 delay={150}
               />
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-              {/* Left Column - Chart & Campaigns */}
-              <div className="xl:col-span-2 space-y-6">
-                <PerformanceChart />
+            <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+              {/* Left Column - Chart & Campaigns & Table */}
+              <div className="xl:col-span-2 space-y-8">
+                {/* Performance Chart */}
+                <div className="bg-card border border-border/50 rounded-lg p-6 animate-slide-up">
+                  <PerformanceChart />
+                </div>
                 
-                {/* Campaigns */}
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-foreground">
-                      Active Campaigns
-                    </h2>
+                {/* Campaigns Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <h2 className="text-2xl font-bold text-foreground">Active Campaigns</h2>
+                      <p className="text-sm text-muted-foreground">Monitor your outreach performance</p>
+                    </div>
                     <button 
                       onClick={() => navigate("/campaigns")}
-                      className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                      className="px-4 py-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors hover:bg-primary/5 rounded-lg"
                     >
                       View all →
                     </button>
                   </div>
+                  
                   {campaigns.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {campaigns.map((campaign, index) => (
                         <CampaignCard
                           key={campaign.id}
                           {...campaign}
+                          onClick={() => navigate(`/campaigns/${campaign.id}`)}
                           delay={index * 50}
                         />
                       ))}
                     </div>
                   ) : (
-                    <div className="text-center py-8 bg-card rounded-xl border border-border">
-                      <p className="text-muted-foreground">No campaigns yet. Create your first campaign!</p>
-                      <button
-                        onClick={() => navigate("/campaigns")}
-                        className="mt-2 text-sm font-medium text-primary hover:text-primary/80"
-                      >
-                        Create Campaign →
-                      </button>
+                    <div className="relative overflow-hidden bg-gradient-to-br from-card to-card border border-border/50 rounded-lg p-12 text-center animate-slide-up">
+                      <div className="absolute -right-20 -top-20 w-40 h-40 bg-primary/5 rounded-full blur-3xl" />
+                      <div className="relative z-10 space-y-3">
+                        <div className="text-4xl">📧</div>
+                        <h3 className="text-lg font-semibold text-foreground">No campaigns yet</h3>
+                        <p className="text-muted-foreground max-w-sm mx-auto">Create your first campaign to start outreach and track performance.</p>
+                        <button
+                          onClick={() => navigate("/campaigns")}
+                          className="mt-4 px-4 py-2 rounded-lg bg-primary text-primary-foreground font-semibold hover:bg-primary/90 inline-flex items-center gap-2 transition-all"
+                        >
+                          Create Campaign →
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Leads Table */}
-                <LeadsTable />
+                <div className="bg-card border border-border/50 rounded-lg overflow-hidden animate-slide-up">
+                  <div className="p-6 border-b border-border/30">
+                    <h2 className="text-lg font-bold text-foreground">Recent Leads</h2>
+                  </div>
+                  <LeadsTable />
+                </div>
               </div>
 
               {/* Right Column - Composer & Activity */}
-              <div className="space-y-6">
-                <EmailComposer />
-                <ActivityFeed />
+              <div className="space-y-8">
+                {/* Email Composer */}
+                <div className="bg-card border border-border/50 rounded-lg overflow-hidden animate-slide-up">
+                  <div className="p-6 border-b border-border/30">
+                    <h2 className="text-lg font-bold text-foreground">Compose Email</h2>
+                    <p className="text-sm text-muted-foreground mt-1">Draft and send emails with AI assistance</p>
+                  </div>
+                  <div className="p-6 pt-4">
+                    <EmailComposer />
+                  </div>
+                </div>
+
+                {/* Activity Feed */}
+                <div className="bg-card border border-border/50 rounded-lg overflow-hidden animate-slide-up">
+                  <div className="p-6 border-b border-border/30">
+                    <h2 className="text-lg font-bold text-foreground">Recent Activity</h2>
+                  </div>
+                  <div className="p-6 pt-4">
+                    <ActivityFeed />
+                  </div>
+                </div>
               </div>
             </div>
           </div>
